@@ -25,11 +25,14 @@ def split_paragraphs():
     '''
     data_dir = './data'
     out_dir = '../../datasets/real'
-    if not os.path.exists(out_dir):
+    if not os.path.exists(out_dir): # make output dir if it does not exist
         os.mkdir(out_dir)
-    songs = ls(data_dir)
+    # Get all files in "../../datasets/real/data"
+    songs = ls(data_dir) # listdir: list all files in a directory
+
+    # Split paragraphs and save to pars
     for song in songs:
-        song_path = jpath(data_dir, song)
+        song_path = jpath(data_dir, song) # join path
         with open(song_path, 'r') as f:
             lyrics = f.readlines()
         lyrics = [l.strip() for l in lyrics]

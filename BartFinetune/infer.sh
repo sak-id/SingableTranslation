@@ -22,6 +22,7 @@ CUDA_VISIBLE_DEVICES=$DEVICE \
   --constraint_path $CONSTRAINT_PATH \
   --tokenizer $TOKENIZER \
   --src_lang $TEST_SRC_LANG \
+  --tgt_lang $TGT_LANG \
   --constraint_type $TEST_CONSTRAINT_TYPE \
   --dataset_class $DATASET_CLASS \
   --num_beams 5 \

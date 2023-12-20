@@ -73,7 +73,7 @@ def generate_translations(
     model = get_model(model_class_name, model_name, None, None).to(device)
     tokenizer = MBart50TokenizerFast.from_pretrained(tokenizer_path)
     tokenizer.src_lang = src_lang
-    tokenizer.tgt_lang = 'zh_CN'
+    tokenizer.tgt_lang = 'ja_XX'
 
     if fp16:
         model = model.half()
@@ -759,7 +759,7 @@ def run_generate(verbose=True):
     )
     parser.add_argument("--fp16", action="store_true")
     parser.add_argument("--src_lang", type=str, default="en_XX", required=True)
-    parser.add_argument("--tgt_lang", type=str, default="zh_CN", required=False)
+    parser.add_argument("--tgt_lang", type=str, default="ja_XX", required=False)
     parser.add_argument("--dump-args", action="store_true", help="print the custom args with the results")
     parser.add_argument("--constraint_type", type=str, default="reference", required=True)
     parser.add_argument("--dataset_class", type=str, default="", required=False)

@@ -10,6 +10,7 @@ import socket
 from logging import getLogger
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Tuple, Union
+#import evaluate # pip install evaluate
 
 import git
 import numpy as np
@@ -25,7 +26,8 @@ from .sentence_splitter import add_newline_to_end_of_each_sentence
 from transformers import BartTokenizer, EvalPrediction, PreTrainedTokenizer, T5Tokenizer
 from transformers.file_utils import cached_property
 from transformers.models.bart.modeling_bart import shift_tokens_right
-from datasets import load_metric
+# from datasets import load_metric
+import evaluate
 
 sys.path.insert(1, os.path.join(sys.path[0], '../'))
 from utils_common.utils import TextCorrupterEn, TextCorrupterCh
@@ -74,11 +76,13 @@ def calculate_bleu(output_lns, refs_lns, **kwargs) -> dict:
     return {"bleu": round(corpus_bleu(output_lns, [refs_lns], **kwargs).score, 4)}
 
 
-def calculate_sacrebleu(out, ref, zh_tokenize=True):
+def calculate_sacrebleu(out, ref, ja_tokenize=True):
     ref = [[i] for i in ref]
-    metric = load_metric('sacrebleu')
-    if zh_tokenize == True:
-        result = metric.compute(predictions=out, references=ref, tokenize='zh')
+    #metric = load_metric('sacrebleu')
+    #load_metric cannot use in future
+    metric = evaluate.load("sacrebleu")
+    if ja_tokenize == True:
+        result = metric.compute(predictions=out, references=ref, tokenize='ja-mecab')
     else:
         result = metric.compute(predictions=out, references=ref)
     ret = {'bleu': round(result['score'], 4)}
@@ -89,9 +93,11 @@ def calculate_sentence_bleu(out, ref):
     out = [[i] for i in out]
     ref = [[[i]] for i in ref]
     ret = []
-    metric = load_metric('sacrebleu')
+    #metric = load_metric('sacrebleu')
+    #load_metric cannot use in future
+    metric = evaluate.load("sacrebleu")
     for i in range(len(out)):
-        t = metric.compute(predictions=out[i], references=ref[i], tokenize='zh', use_effective_order=True)
+        t = metric.compute(predictions=out[i], references=ref[i], tokenize='ja', use_effective_order=True)
         ret.append(t['score'])
     return ret
 
@@ -154,10 +160,10 @@ class AbstractSeq2SeqDataset(Dataset):
         self.src_file = Path(data_dir).joinpath(type_path + ".source")
         self.tgt_file = Path(data_dir).joinpath(type_path + ".target")
         self.len_file = Path(data_dir).joinpath(type_path + ".len")
-        if os.path.exists(self.len_file):
-            self.src_lens = pickle_load(self.len_file)
+        if os.path.exists(self.len_file): #もし既存のlenファイルがあれば
+            self.src_lens = pickle_load(self.len_file) #pickle化したファイルを読み込む
             self.used_char_len = False
-        else:
+        else: #なければ作る
             self.src_lens = self.get_char_lens(self.src_file)
             self.used_char_len = True
         self.max_source_length = max_source_length
@@ -223,49 +229,50 @@ class AbstractSeq2SeqDataset(Dataset):
 
 
 # class LegacySeq2SeqDataset(AbstractSeq2SeqDataset):
-#     def __getitem__(self, index) -> Dict[str, torch.Tensor]:
-#         """Call tokenizer on src and tgt_lines"""
-#         index = index + 1  # linecache starts at 1
-#         source_line = self.prefix + linecache.getline(str(self.src_file), index).rstrip("\n")
-#         tgt_line = linecache.getline(str(self.tgt_file), index).rstrip("\n")
-#         assert source_line, f"empty source line for index {index}"
-#         assert tgt_line, f"empty tgt line for index {index}"
-#         source_inputs = self.encode_line(self.tokenizer, source_line, self.max_source_length)
-#         target_inputs = self.encode_line(self.tokenizer, tgt_line, self.max_target_length)
-#
-#         source_ids = source_inputs["input_ids"].squeeze()
-#         target_ids = target_inputs["input_ids"].squeeze()
-#         src_mask = source_inputs["attention_mask"].squeeze()
-#         return {
-#             "input_ids": source_ids,
-#             "attention_mask": src_mask,
-#             "labels": target_ids,
-#         }
-#
-#     def encode_line(self, tokenizer, line, max_length, pad_to_max_length=True, return_tensors="pt"):
-#         """Only used by LegacyDataset"""
-#         return tokenizer(
-#             [line],
-#             max_length=max_length,
-#             padding="max_length" if pad_to_max_length else None,
-#             truncation=True,
-#             return_tensors=return_tensors,
-#             **self.dataset_kwargs,
-#         )
-#
-#     def collate_fn(self, batch) -> Dict[str, torch.Tensor]:
-#         input_ids = torch.stack([x["input_ids"] for x in batch])
-#         masks = torch.stack([x["attention_mask"] for x in batch])
-#         target_ids = torch.stack([x["labels"] for x in batch])
-#         pad_token_id = self.pad_token_id
-#         y = trim_batch(target_ids, pad_token_id)
-#         source_ids, source_mask = trim_batch(input_ids, pad_token_id, attention_mask=masks)
-#         batch = {
-#             "input_ids": source_ids,
-#             "attention_mask": source_mask,
-#             "labels": y,
-#         }
-#         return batch
+class Seq2SeqDataset(AbstractSeq2SeqDataset): # MBartForConditionalGeneration 動作確認
+    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
+        """Call tokenizer on src and tgt_lines"""
+        index = index + 1  # linecache starts at 1
+        source_line = self.prefix + linecache.getline(str(self.src_file), index).rstrip("\n")
+        tgt_line = linecache.getline(str(self.tgt_file), index).rstrip("\n")
+        assert source_line, f"empty source line for index {index}"
+        assert tgt_line, f"empty tgt line for index {index}"
+        source_inputs = self.encode_line(self.tokenizer, source_line, self.max_source_length)
+        target_inputs = self.encode_line(self.tokenizer, tgt_line, self.max_target_length)
+
+        source_ids = source_inputs["input_ids"].squeeze()
+        target_ids = target_inputs["input_ids"].squeeze()
+        src_mask = source_inputs["attention_mask"].squeeze()
+        return {
+            "input_ids": source_ids,
+            "attention_mask": src_mask,
+            "labels": target_ids,
+        }
+
+    def encode_line(self, tokenizer, line, max_length, pad_to_max_length=True, return_tensors="pt"):
+        """Only used by LegacyDataset"""
+        return tokenizer(
+            [line],
+            max_length=max_length,
+            padding="max_length" if pad_to_max_length else None,
+            truncation=True,
+            return_tensors=return_tensors,
+            **self.dataset_kwargs,
+        )
+
+    def collate_fn(self, batch) -> Dict[str, torch.Tensor]:
+        input_ids = torch.stack([x["input_ids"] for x in batch])
+        masks = torch.stack([x["attention_mask"] for x in batch])
+        target_ids = torch.stack([x["labels"] for x in batch])
+        pad_token_id = self.pad_token_id
+        y = trim_batch(target_ids, pad_token_id)
+        source_ids, source_mask = trim_batch(input_ids, pad_token_id, attention_mask=masks)
+        batch = {
+            "input_ids": source_ids,
+            "attention_mask": source_mask,
+            "labels": y,
+        }
+        return batch
 
 class Seq2SeqDatasetEmbStr(AbstractSeq2SeqDataset):
     """
@@ -3526,7 +3533,7 @@ class Seq2SeqDataset(AbstractSeq2SeqDataset):
                          prefix,
                          **dataset_kwargs)
         t = Path(data_dir).joinpath('constraints').joinpath(constraint_type).joinpath(type_path + ".target")
-        print(t)
+        # print(f"{t=}")
         # assert t.exists()
         self.tgt_cons_file = t
 
@@ -3539,7 +3546,65 @@ class Seq2SeqDataset(AbstractSeq2SeqDataset):
         return {"tgt_texts": tgt_line, "src_texts": source_line, "id": index - 1}
 
     def collate_fn(self, batch) -> Dict[str, torch.Tensor]:
+        # Code in Mbart50TokenizerFast
+        kwargs = self.dataset_kwargs.copy()
+        # print('kwargs:', kwargs)
+        src_lang = kwargs.pop('src_lang')
+        tgt_lang = kwargs.pop('tgt_lang')
+        src_texts = [x["src_texts"] for x in batch]
+        tgt_texts = [x["tgt_texts"] for x in batch]
+        self.tokenizer.src_lang = src_lang
+        self.tokenizer.tgt_lang = tgt_lang
+
+        # Code in PreTrainedTokenizerFast
+        max_length = self.max_source_length
+        max_target_length = self.max_target_length
+        padding = kwargs.pop('padding') if 'padding' in kwargs else 'longest'
+        return_tensors = "pt"
+        truncation = kwargs.pop('truncation') if 'truncation' in kwargs else True
+
+
         """Call prepare_seq2seq_batch."""
+
+        # Process src_texts
+        if max_length is None:
+            max_length = self.tokenizer.model_max_length
+        model_inputs = self.tokenizer(
+            src_texts,
+            add_special_tokens=True,
+            return_tensors=return_tensors,
+            max_length=max_length,
+            padding=padding,
+            truncation=truncation,
+            **kwargs,
+        )
+        assert tgt_texts != None
+        # if tgt_texts is None:
+        #     return model_inputs
+
+        # Process tgt_texts
+        if max_target_length is None:
+            max_target_length = max_length
+        with self.tokenizer.as_target_tokenizer():
+            labels = self.tokenizer(
+                tgt_texts,
+                add_special_tokens=True,
+                return_tensors=return_tensors,
+                padding=padding,
+                max_length=max_target_length,
+                truncation=truncation,
+                **kwargs,
+            )  # Tensor: [BS, max_seq_len_in_batch] device: cpu
+        model_inputs["labels"] = labels["input_ids"]
+
+        # Save data to batch_encoding
+        batch_encoding = model_inputs.data
+        batch_encoding["ids"] = torch.tensor([x["id"] for x in batch])
+        return batch_encoding
+
+
+
+        # old
         batch_encoding: Dict[str, torch.Tensor] = self.tokenizer.prepare_seq2seq_batch(
             [x["src_texts"] for x in batch],
             tgt_texts=[x["tgt_texts"] for x in batch],
@@ -3772,7 +3837,7 @@ def read_json(path):
 
 def save_json_sort(data, path):
     with open(path, 'w', encoding='utf8') as f:
-        f.write(json.dumps(data, indent=4, sort_keys=True, ensure_ascii=False))
+        f.write(json.dumps(data, indent=4, sort_keys=True, ensure_ascii=False)) #indentは改行の数
 
 
 def print_json(data):

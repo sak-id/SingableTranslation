@@ -4,12 +4,13 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Dict
+from torch.optim import AdamW
 
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import rank_zero_info
 from models.MBarts import get_model
 from transformers import (
-    AdamW,
+    # AdamW,
     AutoConfig,
     AutoModel,
     AutoModelForPreTraining,
@@ -21,6 +22,7 @@ from transformers import (
     AutoTokenizer,
     PretrainedConfig,
     PreTrainedTokenizer,
+    MBartForConditionalGeneration, # added by ieda
 
 )
 from transformers.optimization import (
@@ -109,6 +111,7 @@ class BaseTransformer(pl.LightningModule):
         print('Tokenizer loaded!')
 
         self.model_type = MODEL_MODES[mode]
+        # MBartを使う場合は、model_class_nameを指定する
         if model is None:
             self.model = get_model(model_class_name, self.hparams.model_name_or_path, self.config, cache_dir)
         else:
@@ -144,6 +147,7 @@ class BaseTransformer(pl.LightningModule):
                 "weight_decay": 0.0,
             },
         ]
+        # optimizerはAdafactor or AdamW
         if self.hparams.adafactor:
             optimizer = Adafactor(
                 optimizer_grouped_parameters, lr=self.hparams.learning_rate, scale_parameter=False, relative_step=False
@@ -155,7 +159,7 @@ class BaseTransformer(pl.LightningModule):
             )
         self.opt = optimizer
 
-        scheduler = self.get_lr_scheduler()
+        scheduler = self.get_lr_scheduler() #学習率を変化させる
 
         return [optimizer], [scheduler]
 
@@ -257,7 +261,7 @@ class BaseTransformer(pl.LightningModule):
 
 
 class LoggingCallback(pl.Callback):
-    def on_batch_end(self, trainer, pl_module):
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         lr_scheduler = trainer.lr_schedulers[0]["scheduler"]
         lrs = {f"lr_group_{i}": lr for i, lr in enumerate(lr_scheduler.get_lr())}
         pl_module.logger.log_metrics(lrs)
@@ -329,8 +333,8 @@ def add_generic_args(parser, root_dir) -> None:
 
 
 def generic_train(
-        model: BaseTransformer,
-        args: argparse.Namespace,
+        model: BaseTransformer, # modelはBaseTransformerのインスタンス
+        args: argparse.Namespace, # argparse.Namespaceはデータ型
         early_stopping_callback=None,
         logger=True,  # can pass WandbLogger() here
         extra_callbacks=[],
@@ -339,6 +343,9 @@ def generic_train(
         **extra_train_kwargs
 ):
     pl.seed_everything(args.seed)
+
+    # print(type(model))
+    # breakpoint()
 
     # init model
     odir = Path(model.hparams.output_dir)
@@ -350,26 +357,32 @@ def generic_train(
         extra_callbacks.append(early_stopping_callback)
     if logging_callback is None:
         logging_callback = LoggingCallback()
-
     train_params = {}
 
     assert args.fp16 == False  # Don't use fp16 because of potential harm to loss and BLEU
 
     if args.gpus > 1:
-        train_params["accelerator"] = 'ddp'
+        # train_params["accelerator"] = 'ddp' # DataParallel
+        train_params["accelerator"] = "gpu"
+        train_params["devices"] = args.gpus
+        train_params["strategy"] = 'ddp'
 
     train_params["accumulate_grad_batches"] = args.accumulate_grad_batches
     train_params["profiler"] = extra_train_kwargs.get("profiler", None)
     train_params['default_root_dir'] = os.path.join(args.output_dir, 'lightning_ckpt')
 
+    # # for avoid "cannnot allocate memory" (by ieda) but it's not for pytorch lightning
+    # train_params["gradient_accumulation_steps"] = 4
+    # train_params["gradient_checkpointing"] = True
+
     # In ibt, args are loaded in yaml format. Convert it to an argparse.Namespace object
-    if not isinstance(args, argparse.Namespace):
+    if not isinstance(args, argparse.Namespace): # データ型がargparse.Namespaceでない場合
         d = {**args}
         args = argparse.Namespace(**d)
-
     trainer = pl.Trainer.from_argparse_args(
         args,
-        weights_summary=None,
+        #weights_summary=None,
+        enable_model_summary=False,
         callbacks=[logging_callback] + extra_callbacks,
         enable_checkpointing=False,
         logger=logger,

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # server: gpu2
-DEVICE=1
+DEVICE=0
 SEED=42
 # --------- For training ----------
 TRAIN_SCRIPT=finetune.py
@@ -8,7 +8,8 @@ LOGGER=default # default | wandb
 
 TOKENIZER='./tokenizers/mbart_tokenizer_fast_ch_prefix_lrs2'
 MODEL_CLASS=MBartForConditionalGenerationCharLevel
-MODEL='../results/boundary_encoder_prefix_rev_data_bt_1/best_tfmr'
+# MODEL='../results/boundary_encoder_prefix_rev_data_bt_1/best_tfmr'
+MODEL='/raid/ieda/ChineseDatasets/output/boundary_encoder_prefix_rev_data_bt_1/best_tfmr'
 SHORT_MODEL_NAME=final_rev
 ATTEMP=1
 
@@ -19,9 +20,9 @@ SRC_LANG=en_XX
 NUM_WORKERS=0
 
 WARMUP_STEPS=300
-BS=64                   # fp32: GPU2: gpu:32   |   fp16:  48  (4:15/epoch), 80 64(when)  （2:43/epoch）
+BS=16                   # fp32: GPU2: gpu:32   |   fp16:  48  (4:15/epoch), 80 64(when)  （2:43/epoch）
 VAL_CHECK_INTERVAL=0.25 # 0.25
-EPOCHS=3                # 5
+EPOCHS=2                # 5
 LR=5e-6                 # 3e-5 default
 EPS=1e-06
 LR_SCHEDULER=linear
@@ -30,8 +31,10 @@ LABEL_SMOOTHING=0.0
 
 # export PYTHONPATH="../":"${PYTHONPATH}"
 MAX_LEN=50
-DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
-OUTPUT_DIR="../results/${SHORT_MODEL_NAME}_${DATASET_VER}_${ATTEMP}"
+# DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
+DATASET_DIR="/raid/ieda/ChineseDatasets/${DATASET_VER}"
+# OUTPUT_DIR="../results/${SHORT_MODEL_NAME}_${DATASET_VER}_${ATTEMP}"
+OUTPUT_DIR="/raid/ieda/ChineseDatasets/output/${SHORT_MODEL_NAME}_${DATASET_VER}_${ATTEMP}"
 
 # --------- For testing ----------
 TEST_SCRIPT=inference.py
@@ -39,10 +42,11 @@ TEST_SCRIPT=inference.py
 LENGTH_TARGET=tgt # src | tgt
 TEST_BOS_TOKEN_ID=250025
 TEST_SRC_LANG=en_XX # zh_CN
-TEST_BS=80
+TEST_BS=16
 FORCE=no # length | rhyme | no
 
-TEST_DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
+# TEST_DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
+TEST_DATASET_DIR="/raid/ieda/ChineseDatasets/${DATASET_VER}"
 TEST_CONSTRAINT_TYPE=source # reference | source | random
 MODEL_NAME_OR_PATH=${OUTPUT_DIR}/best_tfmr
 TEST_INPUT_PATH=${TEST_DATASET_DIR}/test.source

@@ -32,7 +32,7 @@ from metrics import (
 )
 from utils_common.utils import (
     RhymeUtil, save_json, PosSeg,
-    FluencyCaculator,
+    #FluencyCaculator,
     # , # PerpCaculator #, FluencyCaculator2
     calculate_acc_2d,
 )
@@ -69,8 +69,7 @@ def compute_scores(args):
     reference_lns = references
     if os.path.exists(args.constraint_path):
         constraint_lns = [x.rstrip() for x in open(args.constraint_path).readlines()]
-        constraint_stress_lns = [x.rstrip() for x in
-                                 open(args.constraint_path.replace('.target', '_boundary.target')).readlines()]
+        constraint_stress_lns = [x.rstrip() for x in open(args.constraint_path.replace('.target', '_boundary.target')).readlines()]
     else:
         print('Constraint path not exist: {}'.format(args.constraint_path))
         constraint_lns = None

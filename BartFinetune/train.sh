@@ -15,7 +15,7 @@ python $TRAIN_SCRIPT \
     --num_train_epochs $EPOCHS \
     --tokenizer $TOKENIZER \
     --src_lang $SRC_LANG \
-    --tgt_lang zh_CN \
+    --tgt_lang $TGT_LANG \
     --data_dir $DATASET_DIR \
     --constraint_type $CONSTRAINT_TYPE \
     --max_source_length $MAX_LEN \

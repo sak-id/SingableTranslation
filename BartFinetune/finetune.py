@@ -17,6 +17,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Tuple
+# from pytorch_memlab import MemReporter
 
 import numpy as np
 import pytorch_lightning as pl
@@ -24,7 +25,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from transformers import MBartTokenizer, T5ForConditionalGeneration, MBart50TokenizerFast, LogitsProcessor
+from transformers import MBartTokenizer, T5ForConditionalGeneration, MBart50TokenizerFast, LogitsProcessor, MBartForConditionalGeneration # MBartForConditionalGeneration is added
 from transformers.models.bart.modeling_bart import shift_tokens_right
 
 from metrics import BoundaryRecall
@@ -82,10 +83,9 @@ from utils_common.utils import calculate_acc, RhymeUtil, RhymeCaculator, PosSeg,
 
 # from LM.ngram.language_model import LanguageModel
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__) #実行中に起こったことを追跡
 
-from pynvml import nvmlInit, nvmlDeviceGetMemoryInfo, nvmlDeviceGetHandleByIndex
-
+from pynvml import nvmlInit, nvmlDeviceGetMemoryInfo, nvmlDeviceGetHandleByIndex #nvidia関連
 
 def print_gpu_utilization():
     nvmlInit()
@@ -93,7 +93,7 @@ def print_gpu_utilization():
     info = nvmlDeviceGetMemoryInfo(handle)
     print(f"GPU memory occupied: {info.used // 1024 ** 2} MB.")
 
-
+#BaseTransformerはutilのligtning_base.py内で定義
 class TranslationModule(BaseTransformer):
     mode = "translation"
     loss_names = ["loss"]
@@ -101,7 +101,7 @@ class TranslationModule(BaseTransformer):
     default_val_metric = "bleu"
 
     def __init__(self, args, tokenizer=None):
-        if args.sortish_sampler and args.gpus > 1:
+        if args.sortish_sampler and args.gpus > 1: #入力の長さにより並べ替え、paddingを減らす
             args.replace_sampler_ddp = False
         elif args.max_tokens_per_batch is not None:
             if args.gpus > 1:
@@ -115,10 +115,10 @@ class TranslationModule(BaseTransformer):
         # Extend model's embedding size
         self.model.resize_token_embeddings(new_num_tokens=len(self.tokenizer))
 
-        use_task_specific_params(self.model, "summarization")
+        use_task_specific_params(self.model, "summarization") #モデルのパラメータを変更、表示
         self.metrics_save_path = Path(self.output_dir) / "metrics.json"
         self.hparams_save_path = Path(self.output_dir) / "args.json"
-        save_json_sort(self.hparams, self.hparams_save_path)
+        save_json_sort(self.hparams, self.hparams_save_path) #json形式の文字列へ変換しpath先に保存
         self.step_count = 0
         self.metrics = defaultdict(list)
         self.model_type = self.config.model_type
@@ -126,8 +126,9 @@ class TranslationModule(BaseTransformer):
 
         print('data_dir:', self.hparams.data_dir)
 
+        # kwargsは複数の引数を辞書として受け取る
         self.dataset_kwargs: dict = dict(
-            data_dir=self.hparams.data_dir,
+            data_dir=self.hparams.data_dir, # Datasetのディレクトリ
             max_source_length=self.hparams.max_source_length,
             prefix=self.model.config.prefix or "",
         )
@@ -142,6 +143,15 @@ class TranslationModule(BaseTransformer):
             "val": self.hparams.n_val,
             "test": self.hparams.n_test,
         }
+        # # For debug
+        # n_observations_per_split = {
+        #     "train": 100,
+        #     "val": 10,
+        #     "test": 10,
+        # }
+        
+
+        # n_xx default: -1 so all "train", "val", and "test": None
         self.n_obs = {k: v if v >= 0 else None for k, v in n_observations_per_split.items()}
 
         self.target_lens = {
@@ -151,6 +161,7 @@ class TranslationModule(BaseTransformer):
         }
         assert self.target_lens["train"] <= self.target_lens["val"], f"target_lens: {self.target_lens}"
         assert self.target_lens["train"] <= self.target_lens["test"], f"target_lens: {self.target_lens}"
+        # 学習済みのパラメータを凍結
         if self.hparams.freeze_embeds:
             freeze_embeds(self.model)
         if self.hparams.freeze_encoder:
@@ -163,17 +174,17 @@ class TranslationModule(BaseTransformer):
             unfreeze_embeds(self.model)
 
         # self.args.git_sha = None
-        self.num_workers = args.num_workers
+        self.num_workers = args.num_workers #並列実行数
         # self.decoder_start_token_id = None  # default to config
         # if self.model.config.decoder_start_token_id is None and isinstance(self.tokenizer, MBartTokenizer):
         #     self.decoder_start_token_id = self.tokenizer.lang_code_to_id[args.tgt_lang]
         #     self.model.config.decoder_start_token_id = self.decoder_start_token_id
         #     print('BOS start token id specified to ', self.tokenizer.lang_code_to_id[args.tgt_lang])
         self.forced_bos_token_id = self.tokenizer.lang_code_to_id[args.tgt_lang]
-        print('\n', 'BOS start token id specified to ', self.tokenizer.lang_code_to_id[args.tgt_lang], '\n')
+        print('\n', 'BOS start token id specified to ', self.tokenizer.lang_code_to_id[args.tgt_lang], '\n') #250012, ja_XX
 
         # self.dataset_class = eval(self.hparams.dataset_class)
-        self.dataset_class = get_dataset_by_type(self.hparams.dataset_class)
+        self.dataset_class = get_dataset_by_type(self.hparams.dataset_class) #データセットのクラスを取得
 
         self.already_saved_batch = False
         self.eval_beams = self.model.config.num_beams if self.hparams.eval_beams is None else self.hparams.eval_beams
@@ -194,12 +205,15 @@ class TranslationModule(BaseTransformer):
         self.avg_train_loss = 0
         self.best_valid_metrics = None
 
-    def calc_generative_metrics(self, preds, target, zh_tokenize) -> dict:
+        # self.reporter = MemReporter(self.model)
+        # self.reporter.report()
+        
+    def calc_generative_metrics(self, preds, target, ja_tokenize) -> dict:
         '''
         Calculate metrics for generation
         '''
         # return calculate_bleu(preds, target)
-        return calculate_sacrebleu(preds, target, zh_tokenize=zh_tokenize)
+        return calculate_sacrebleu(preds, target, ja_tokenize=ja_tokenize)
 
     def save_readable_batch(self, batch: Dict[str, torch.Tensor]) -> Dict[str, List[str]]:
         '''
@@ -233,21 +247,23 @@ class TranslationModule(BaseTransformer):
 
     def ids_to_clean_text(self, generated_ids: List[int]):
         gen_text = self.tokenizer.batch_decode(
-            generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True
+            generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True #clean_up_tokenization_spaces:空白を削除
         )
-        return lmap(str.strip, gen_text)
+        return lmap(str.strip, gen_text) #listにしてreturn
 
     def _step(self, batch: dict) -> Tuple:
         '''
         A step of forward pass in TRAINING, computing the logits in every position and return the loss
         A generative step will also call this function, but only for computing loss
         '''
-        pad_token_id = self.tokenizer.pad_token_id
+        pad_token_id = self.tokenizer.pad_token_id #padding用のtoken_id
+        # print(f"pad_token_id: {pad_token_id}")
         src_ids, src_mask = batch["input_ids"], batch["attention_mask"]
         tgt_ids = batch["labels"]
         # tgt_lens, tgt_rhymes = batch['tgt_lens'], batch['tgt_rhymes']
 
         # Prepare decoder input for training (right-shifted target)
+        # Decide shift_func
         decoder_start_token_id = self.model._get_decoder_start_token_id()
         if self.hparams.dataset_class == "Seq2SeqDatasetPrefixDecoder":  # 2 decoder prefix
             shift_func = shift_tokens_right_prefix_2
@@ -258,7 +274,7 @@ class TranslationModule(BaseTransformer):
             'Seq2SeqDatasetEmbStr',
             'Seq2SeqDatasetEmbBdr',
             'Seq2SeqDatasetPrefixEncoderStr',
-            'Seq2SeqDatasetPrefixEncoderBdr',
+            'Seq2SeqDatasetPrefixEncoderBdr', #現在選択中
             'Seq2SeqDatasetPrefixEncoderBdrRev',
             'Seq2SeqDatasetPrefixEncoderBdrDenoise',
         ]:
@@ -274,7 +290,7 @@ class TranslationModule(BaseTransformer):
             'Seq2SeqDatasetLenEncRhyEmb',
             'Seq2SeqDatasetLenEncRhyEnc',
         ]:
-            shift_func = shift_tokens_right
+            shift_func = shift_tokens_right # [X] -> [decoder_start_token_id, X, (padding)]
         elif self.hparams.dataset_class in [  # 21 decoder prefix
             'Seq2SeqDatasetPrefixDecoderStr',
             'Seq2SeqDatasetPrefixDecoderBdr',
@@ -329,7 +345,7 @@ class TranslationModule(BaseTransformer):
     def pad(self) -> int:
         return self.tokenizer.pad_token_id
 
-    def training_step(self, batch, batch_idx) -> Dict:
+    def training_step(self, batch, batch_idx) -> Dict: #trainer.fitから呼び出される
         '''
         Full forward pass and metric computing in training
         '''
@@ -341,17 +357,16 @@ class TranslationModule(BaseTransformer):
         logs["bs"] = batch["input_ids"].shape[0]
         logs["src_pad_tok"] = batch["input_ids"].eq(self.pad).sum()
         logs["src_pad_frac"] = batch["input_ids"].eq(self.pad).float().mean()
-
         # Log in wandb, but I don't know where are the logs
         for k in logs:
-            self.log(k, logs[k])
+            self.log(k, logs[k]) # calculate epoch-level metrics
 
         # Update average train loss
         self.avg_train_loss = (self.avg_train_loss * batch_idx + loss_tensors[0].item()) / (batch_idx + 1)
 
         return {"loss": loss_tensors[0], "log": logs}
 
-    def training_epoch_end(self, outputs):
+    def training_epoch_end(self, outputs): #trainer.fitから呼び出される
         # Clear metric cache
         self.avg_train_loss = 0
 
@@ -411,6 +426,8 @@ class TranslationModule(BaseTransformer):
         self.metrics[prefix].append(all_metrics)  # callback writes this to self.metrics_save_path
         preds = flatten_list([x["preds"] for x in outputs])
 
+        print(f"{preds[0]=}")
+
         # Log in wandb
         for k in all_metrics:
             self.log(k, all_metrics[k])
@@ -425,10 +442,14 @@ class TranslationModule(BaseTransformer):
                 # Save checkpoint
                 # if all_metrics['val_avg_bleu'] > self.best_bleu and self.global_step > 0:
                 if all_metrics['val_avg_loss'] < self.best_loss and self.global_step > 0:
-                    save_path = self.output_dir.joinpath("best_tfmr")
+
+                    # self.reporter.report()
+                    # breakpoint()
+                    
+                    # save_path = self.output_dir.joinpath("best_tfmr")
                     self.best_loss = all_metrics['val_avg_loss']
-                    self.model.save_pretrained(save_path)
-                    self.tokenizer.save_pretrained(save_path)
+                    # self.model.save_pretrained(save_path)
+                    # self.tokenizer.save_pretrained(save_path)
 
                     # checkpoint_name = 'epoch: {}, step: {}, loss: {:.4f}, bleu: {:.4f}'.format(
                     #     self.current_epoch, self.global_step, all_metrics['val_avg_loss'], all_metrics['val_avg_bleu'])
@@ -609,25 +630,34 @@ class TranslationModule(BaseTransformer):
             )
         else:
             raise Exception("Incorrect dataset_class: {}".format(self.hparams.dataset_class))
-
+        # print(generated_ids)
         gen_time = (time.time() - t0) / batch["input_ids"].shape[0]
         preds: List[str] = self.ids_to_clean_text(generated_ids)
         target: List[str] = self.ids_to_clean_text(batch["labels"])
         loss_tensors = self._step(batch)
-
+        # print(batch)
+        # print('generated_ids:', generated_ids)
+        print('generative preds:', preds[0])
+        # preds2: List[str] = self.ids_to_clean_text([x[2:] for x in generated_ids])
+        # print('preds2:', preds2)
         # Validation metrics
         base_metrics = {name: loss for name, loss in zip(self.loss_names, loss_tensors)}  # {loss: loss_value}
         # print(len(preds), len(target))
-        zh_tokenize = True if self.tgt_lang == 'zh_CN' else False
-        bleu: Dict = self.calc_generative_metrics(preds, target, zh_tokenize=zh_tokenize)
+        ja_tokenize = True if self.tgt_lang == 'ja_XX' else False
+        bleu: Dict = self.calc_generative_metrics(preds, target, ja_tokenize=ja_tokenize)
         summ_len = np.mean(lmap(len, generated_ids))
 
         base_metrics.update(gen_time=gen_time, gen_len=summ_len, preds=preds, target=target, **bleu)
-
         if self.hparams.dataset_class not in ['Seq2SeqDataset', 'Seq2SeqDatasetAdapt']:
             # Compute format accuracy
             out_lens = [len(i.strip()) for i in preds]
-            len_acc = calculate_acc(out=out_lens, tgt=batch['tgt_lens'].squeeze().tolist())
+            assert type(batch['tgt_lens']) == torch.Tensor
+            assert type(out_lens) == list
+            tgt = batch["tgt_lens"].squeeze().tolist()
+            if type(tgt) != list:
+                tgt = [tgt]
+            # len_acc = calculate_acc(out=out_lens, tgt=batch['tgt_lens'].squeeze().tolist())
+            len_acc = calculate_acc(out=out_lens, tgt=tgt)
 
             # Compute rhyme accuracy
             rhyme_util = RhymeCaculator
@@ -637,7 +667,11 @@ class TranslationModule(BaseTransformer):
             else:
                 print('Compute rhyme metric in normal order.\n')
                 out_rhymes = [rhyme_util.get_rhyme_type_of_line(line) for line in preds]
-            rhyme_acc = calculate_acc(out=out_rhymes, tgt=batch['tgt_rhymes'].squeeze().tolist())
+            tgt = batch["tgt_rhymes"].squeeze().tolist()
+            if type(tgt) != list:
+                tgt = [tgt]
+            # rhyme_acc = calculate_acc(out=out_rhymes, tgt=batch['tgt_rhymes'].squeeze().tolist())
+            rhyme_acc = calculate_acc(out=out_rhymes, tgt=tgt)
 
             # Compute boundary recall
             if 'tgt_stress' in batch:
@@ -646,12 +680,10 @@ class TranslationModule(BaseTransformer):
                 else:
                     output_lines = preds
                 boundary_util = BoundaryRecall()
-                boundary_recall = boundary_util.boundary_recall_batch(output_lines, [''.join(str(i) for i in l) for l in
-                                                                                     batch['tgt_stress']])
+                boundary_recall = boundary_util.boundary_recall_batch(output_lines, [''.join(str(i) for i in l) for l in batch['tgt_stress']])
             else:
                 boundary_recall = 0
             base_metrics.update(len_acc=len_acc, rhyme_acc=rhyme_acc, boundary_recall=boundary_recall)
-
         # Compute stress pattern accuracy for some models
         if self.hparams.dataset_class in [
             'Seq2SeqDatasetEmbStr',
@@ -690,7 +722,7 @@ class TranslationModule(BaseTransformer):
                 type_path=type_path,
                 n_obs=n_obs,
                 max_target_length=max_target_length,
-                constraint_type=self.hparams.constraint_type,
+                constraint_type=self.hparams.constraint_type, #ここだけ追加
                 **self.dataset_kwargs,
             )
         else:
@@ -816,7 +848,7 @@ class TranslationModule(BaseTransformer):
         parser.add_argument("--freeze_embeds", action="store_true")
         parser.add_argument("--prompt_tuning", action="store_true", default=False)
         parser.add_argument("--sortish_sampler", action="store_true", default=False)
-        parser.add_argument("--overwrite_output_dir", action="store_true", default=False)
+        parser.add_argument("--overwrite_output_dir", action="store_true", default=True) # changed
         parser.add_argument("--max_tokens_per_batch", type=int, default=None)
         parser.add_argument("--logger_name", type=str, choices=["default", "wandb", "wandb_shared"], default="default")
         parser.add_argument("--n_train", type=int, default=-1, required=False, help="# examples. -1 means use all.")
@@ -859,7 +891,7 @@ def train_with_args(args, model=None):
     print('Tokenizer path:', args.tokenizer)
     tokenizer = MBart50TokenizerFast.from_pretrained(args.tokenizer)
     tokenizer.src_lang = 'en_XX'
-    tokenizer.tgt_lang = 'zh_CN'
+    tokenizer.tgt_lang = 'ja_XX'
 
     # Construct model
     if model is None:
@@ -867,7 +899,7 @@ def train_with_args(args, model=None):
         model = TranslationModule(args, tokenizer=tokenizer)
 
     # Construct logger
-    dataset_dir = Path(args.data_dir).name
+    dataset_dir = Path(args.data_dir).name # DATASET_DIRと同じ
     if (
             args.logger_name == "default"
             or args.fast_dev_run
@@ -889,13 +921,13 @@ def train_with_args(args, model=None):
     # Config early stopping
     print(args.early_stopping_patience, type(args.early_stopping_patience))
     if args.early_stopping_patience >= 0:
-        es_callback = get_early_stopping_callback(model.val_metric, args.early_stopping_patience)
+        es_callback = get_early_stopping_callback(model.val_metric, args.early_stopping_patience) #callbacks.pyで定義
     else:
         es_callback = False
 
     # Training
     lower_is_better = args.val_metric == "loss"
-    trainer: pl.Trainer = generic_train(
+    trainer: pl.Trainer = generic_train( #lightning_base.pyで定義
         model,
         args,
 
@@ -921,12 +953,12 @@ def train_with_args(args, model=None):
 
 
 def parse_arg():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser() # Command Lineから引数を受け取るためのパーサを作成
     parser = pl.Trainer.add_argparse_args(parser)
     parser = TranslationModule.add_model_specific_args(parser, os.getcwd())
-    args = parser.parse_args()
+    args = parser.parse_args() # 引数を解析
     if 'CUDA_VISIBLE_DEVICES' not in os.environ:
-        os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+        os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     gpu_list = os.environ['CUDA_VISIBLE_DEVICES'].strip().split(',')
     args.gpus = len(gpu_list)
     return args
@@ -951,7 +983,8 @@ if __name__ == "__main__":
         model_direction = config['direction']
 
         # Update output dir
-        output_dir = '../results/full/ibt/iter_{}/model_{}'.format(iteration, model_direction)
+        #output_dir = '../results/full/ibt/iter_{}/model_{}'.format(iteration, model_direction)
+        output_dir = '/raid/ieda/lyric_result/full/ibt/iter_{}/model_{}'.format(iteration, model_direction)
         args.output_dir = output_dir
 
         # Save next iteration num to the json file

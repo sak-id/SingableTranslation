@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # server: gpu2
-DEVICE=2
+DEVICE=0
 SEED=42
 
 # --------- For training ----------
@@ -20,9 +20,10 @@ SRC_LANG=en_XX
 NUM_WORKERS=0
 
 WARMUP_STEPS=2500
-BS=40                   # fp32: GPU2: gpu:32   |   fp16:  48  (4:15/epoch), 80 64(when)  （2:43/epoch）
+# BS=40                   # fp32: GPU2: gpu:32   |   fp16:  48  (4:15/epoch), 80 64(when)  （2:43/epoch）
+BS=16
 VAL_CHECK_INTERVAL=0.25 # 0.25
-EPOCHS=5                # 5
+EPOCHS=2                # 5
 LR=3e-5                 # 3e-5 default
 EPS=1e-06
 LR_SCHEDULER=linear
@@ -31,9 +32,12 @@ LABEL_SMOOTHING=0.0
 
 # export PYTHONPATH="../":"${PYTHONPATH}"
 MAX_LEN=50
-DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
-OUTPUT_DIR="../results/${SHORT_MODEL_NAME}_${DATASET_VER}_${ATTEMP}"
-
+# change
+# DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
+DATASET_DIR="/raid/ieda/ChineseDatasets/${DATASET_VER}"
+# change
+# OUTPUT_DIR="../results/${SHORT_MODEL_NAME}_${DATASET_VER}_${ATTEMP}"
+OUTPUT_DIR="/raid/ieda/ChineseDatasets/output/${SHORT_MODEL_NAME}_${DATASET_VER}_${ATTEMP}"
 # --------- For testing ----------
 TEST_SCRIPT=inference.py
 
@@ -43,7 +47,9 @@ TEST_SRC_LANG=en_XX # zh_CN
 TEST_BS=80
 FORCE=no # length | rhyme | no
 
-TEST_DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
+# change
+# TEST_DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
+TEST_DATASET_DIR="/raid/ieda/ChineseDatasets/${DATASET_VER}"
 TEST_CONSTRAINT_TYPE=source # reference | source | random
 MODEL_NAME_OR_PATH=${OUTPUT_DIR}/best_tfmr
 TEST_INPUT_PATH=${TEST_DATASET_DIR}/test.source

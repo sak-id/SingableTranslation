@@ -77,7 +77,8 @@ class ModelArguments:
         default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
     )
     cache_dir: Optional[str] = field(
-        default=None,
+        # default=None,
+        default="/raid/ieda/dataset_cache",
         metadata={"help": "Where to store the pretrained models downloaded from huggingface.co"},
     )
     use_fast_tokenizer: bool = field(
@@ -263,6 +264,9 @@ def main():
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
     send_example_telemetry("run_translation", model_args, data_args)
+    
+    assert os.environ["CUDA_VISIBLE_DEVICES"]=="1"
+    print("cuda is correct: 1")
 
     # Setup logging
     logging.basicConfig(
@@ -343,6 +347,7 @@ def main():
         if data_args.test_file is not None:
             data_files["test"] = data_args.test_file
             extension = data_args.test_file.split(".")[-1]
+        # extension="json"
         raw_datasets = load_dataset(
             extension,
             data_files=data_files,
@@ -543,14 +548,23 @@ def main():
 
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
-
-        result = metric.compute(predictions=decoded_preds, references=decoded_labels)
+        do_tokenize = 'ja-mecab' if target_lang=="ja_XX" else None
+        # result = metric.compute(predictions=decoded_preds, references=decoded_labels)
+        result = metric.compute(predictions=decoded_preds, references=decoded_labels,tokenize=do_tokenize)
         result = {"bleu": result["score"]}
 
         prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
         result["gen_len"] = np.mean(prediction_lens)
         result = {k: round(v, 4) for k, v in result.items()}
         return result
+    
+    # checking sacrebleu
+    # print(metric.compute(predictions=["hello how are you", "hoge hoge"],references=[["Hi how are you", "hoge hoge"],["foo bar foo", "foo bar foobar"]]))
+    # {'score': 42.3240862445307, 'counts': [3, 2, 1, 0], 'totals': [6, 4, 2, 1], 'precisions': [50.0, 50.0, 50.0, 50.0], 'bp': 0.846481724890614, 'sys_len': 6, 'ref_len': 7}
+    # print(metric.compute(predictions=["猫がこたつで丸くなる", "こんにちは"],references=[["猫とこたつで丸くなる", "こんにちは"],["猫とこたつ", "ねこねこ"]]))
+    # {'score': 0.0, 'counts': [0, 0, 0, 0], 'totals': [2, 0, 0, 0], 'precisions': [0.0, 0.0, 0.0, 0.0], 'bp': 1.0, 'sys_len': 2, 'ref_len': 2}
+    # metric.compute(predictions=predictions, references=references,tokenize="ja-mecab")
+    # {'score': 44.81526019296195, 'counts': [5, 3, 2, 1], 'totals': [7, 5, 4, 3], 'precisions': [71.42857142857143, 60.0, 50.0, 33.333333333333336], 'bp': 0.8668778997501817, 'sys_len': 7, 'ref_len': 8}
 
     # Initialize our Trainer
     trainer = Seq2SeqTrainer(
