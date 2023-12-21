@@ -97,7 +97,7 @@ def calculate_sentence_bleu(out, ref):
     #load_metric cannot use in future
     metric = evaluate.load("sacrebleu")
     for i in range(len(out)):
-        t = metric.compute(predictions=out[i], references=ref[i], tokenize='ja', use_effective_order=True)
+        t = metric.compute(predictions=out[i], references=ref[i], tokenize='ja-mecab', use_effective_order=True)
         ret.append(t['score'])
     return ret
 

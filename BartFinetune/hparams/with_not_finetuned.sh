@@ -2,20 +2,18 @@
 DEVICE=0
 SEED=42
 
+# For inference with MBart not finetuned model
+# Not for training
+
 # --------- For training ----------
-TRAIN_SCRIPT=finetune.py
+# TRAIN_SCRIPT=finetune.py
 LOGGER=default # default | wandb
 
-# TOKENIZER='./tokenizers/mbart_tokenizer_fast_ja_prefix_lrs_notsep'
-# TOKENIZER='./tokenizers/mbart_tokenizer_fast_unmodified'
 TOKENIZER='facebook/mbart-large-50-one-to-many-mmt'
-# MODEL_CLASS=MBartForConditionalGenerationCharLevel
 MODEL_CLASS=MBartForConditionalGeneration
-# MODEL="facebook/mbart-large-50"
 MODEL="facebook/mbart-large-50-one-to-many-mmt"
-# SHORT_MODEL_NAME=boundary_encoder_prefix_rev
-SHORT_MODEL_NAME=mbart_plain
-ATTEMP=3
+SHORT_MODEL_NAME=mbart_not_finetuned
+ATTEMP=1
 
 DATASET_VER=data_bt
 # DATASET_CLASS=Seq2SeqDatasetPrefixEncoderBdr
@@ -39,8 +37,8 @@ LABEL_SMOOTHING=0.0
 
 # export PYTHONPATH="../":"${PYTHONPATH}"
 MAX_LEN=20 # 50
-DATASET_DIR="/raid/ieda/trans_jaen_dataset/Dataset/datasets/${DATASET_VER}"
-OUTPUT_DIR="/raid/ieda/lyric_result/${SHORT_MODEL_NAME}_${DATASET_VER}_${ATTEMP}"
+# DATASET_DIR="/raid/ieda/trans_jaen_dataset/Dataset/datasets/${DATASET_VER}"
+# OUTPUT_DIR="/raid/ieda/lyric_result/${SHORT_MODEL_NAME}_${DATASET_VER}_${ATTEMP}"
 # --------- For testing ----------
 TEST_SCRIPT=inference.py
 
@@ -51,14 +49,15 @@ TEST_BS=80
 FORCE=no # length | rhyme | no
 
 # change
-# TEST_DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
-# TEST_DATASET_DIR="/raid/ieda/ChineseDatasets/${DATASET_VER}"
 TEST_DATASET_DIR="/raid/ieda/trans_jaen_dataset/Dataset/datasets/${DATASET_VER}"
 # TEST_CONSTRAINT_TYPE=source # reference | source | random
 TEST_CONSTRAINT_TYPE=reference # reference | source | random
-MODEL_NAME_OR_PATH=${OUTPUT_DIR}/best_tfmr
+# MODEL_NAME_OR_PATH=${OUTPUT_DIR}/best_tfmr
+MODEL_NAME_OR_PATH="facebook/mbart-large-50-one-to-many-mmt"
 TEST_INPUT_PATH="${TEST_DATASET_DIR}/test.source" # add "" by ieda
 REF_PATH="${TEST_DATASET_DIR}/test.target"
+
+OUTPUT_DIR="/raid/ieda/lyric_result/${SHORT_MODEL_NAME}_${DATASET_VER}_${ATTEMP}"
 
 TEST_DATASET_VER=trans_jaen_dataset_small # only for the name of output dir
 CONSTRAINT_PATH=${TEST_DATASET_DIR}/constraints/${TEST_CONSTRAINT_TYPE}/test.target

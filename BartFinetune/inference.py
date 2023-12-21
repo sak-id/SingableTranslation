@@ -419,7 +419,9 @@ def generate_translations(
           or '/ft_in_domain_pt_' in model_name
           or '/ft_denoise_ft_' in model_name
           or 'mmt' in model_name
+          or 'plain' in model_name
     ):
+        print("Seq2Seq Correct")
         for idx, batch in enumerate(tqdm(dataloader)):
             for k in batch:
                 if isinstance(batch[k], torch.Tensor):
@@ -428,7 +430,7 @@ def generate_translations(
                 translation = model.generate(
                     input_ids=batch["input_ids"],
                     attention_mask=batch["attention_mask"],
-                    forced_bos_token_id=250025,
+                    forced_bos_token_id=250012, # modified to japanese
                     **generate_kwargs,
                 )
             elif args.force == 'length':

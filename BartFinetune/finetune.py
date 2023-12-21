@@ -446,10 +446,10 @@ class TranslationModule(BaseTransformer):
                     # self.reporter.report()
                     # breakpoint()
                     
-                    # save_path = self.output_dir.joinpath("best_tfmr")
+                    save_path = self.output_dir.joinpath("best_tfmr")
                     self.best_loss = all_metrics['val_avg_loss']
-                    # self.model.save_pretrained(save_path)
-                    # self.tokenizer.save_pretrained(save_path)
+                    self.model.save_pretrained(save_path)
+                    self.tokenizer.save_pretrained(save_path)
 
                     # checkpoint_name = 'epoch: {}, step: {}, loss: {:.4f}, bleu: {:.4f}'.format(
                     #     self.current_epoch, self.global_step, all_metrics['val_avg_loss'], all_metrics['val_avg_bleu'])
@@ -637,7 +637,7 @@ class TranslationModule(BaseTransformer):
         loss_tensors = self._step(batch)
         # print(batch)
         # print('generated_ids:', generated_ids)
-        print('generative preds:', preds[0])
+        # print('generative preds:', preds[0])
         # preds2: List[str] = self.ids_to_clean_text([x[2:] for x in generated_ids])
         # print('preds2:', preds2)
         # Validation metrics
