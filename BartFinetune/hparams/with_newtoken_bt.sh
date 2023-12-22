@@ -2,20 +2,20 @@
 DEVICE=0
 SEED=42
 
+# finetuning with new tokenizer "mbart_tokenizer_fast_ja_prefix_lrs_notsep" (add special tokens)
+
 # --------- For training ----------
 TRAIN_SCRIPT=finetune.py
 LOGGER=default # default | wandb
 
-# TOKENIZER='./tokenizers/mbart_tokenizer_fast_ja_prefix_lrs_notsep'
-# TOKENIZER='./tokenizers/mbart_tokenizer_fast_unmodified'
-TOKENIZER='facebook/mbart-large-50-one-to-many-mmt'
-# MODEL_CLASS=MBartForConditionalGenerationCharLevel
+TOKENIZER='./tokenizers/mbart_tokenizer_fast_ja_prefix_lrs_notsep'
+# TOKENIZER='facebook/mbart-large-50-one-to-many-mmt'
 MODEL_CLASS=MBartForConditionalGeneration
 # MODEL="facebook/mbart-large-50"
 MODEL="facebook/mbart-large-50-one-to-many-mmt"
 # SHORT_MODEL_NAME=boundary_encoder_prefix_rev
-SHORT_MODEL_NAME=mbart_plain
-ATTEMP=4
+SHORT_MODEL_NAME=mbart_addtoken_notused_plain
+ATTEMP=2
 
 DATASET_VER=data_bt
 # DATASET_CLASS=Seq2SeqDatasetPrefixEncoderBdr
@@ -50,9 +50,6 @@ TEST_SRC_LANG=en_XX # zh_CN
 TEST_BS=80
 FORCE=no # length | rhyme | no
 
-# change
-# TEST_DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
-# TEST_DATASET_DIR="/raid/ieda/ChineseDatasets/${DATASET_VER}"
 TEST_DATASET_DIR="/raid/ieda/trans_jaen_dataset/Dataset/datasets/${DATASET_VER}"
 # TEST_CONSTRAINT_TYPE=source # reference | source | random
 TEST_CONSTRAINT_TYPE=reference # reference | source | random

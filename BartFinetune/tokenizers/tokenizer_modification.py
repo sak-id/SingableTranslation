@@ -18,12 +18,11 @@ sys.path.insert(2, os.path.normpath(os.path.join(sys.path[0], '../../')))
 from utils.utils import *
 print("library imported")
 
-# TOKENIZER_NAME = './mbart_tokenizer_fast_ja_prefix_lrs_notsep' # tokenizer name for saving
-TOKENIZER_NAME = './mbart_tokenizer_unmodified'
+TOKENIZER_NAME = './mbart_tokenizer_fast_ja_prefix_lrs_notsep' # tokenizer name for saving
 
 def _main():
     pass
-    tokenizer_save()
+    tokenizer_load(TOKENIZER_NAME)
     exit()
 
 def procedures():
@@ -80,8 +79,8 @@ def tokenizer_save():
     # tokenizer.save_pretrained(TOKENIZER_NAME, legacy_format=False)
 
 
-def tokenizer_load():
-    tokenizer = MBart50TokenizerFast.from_pretrained('./mbart_tokenizer_fast')
+def tokenizer_load(tokenizer_name):
+    tokenizer = MBart50TokenizerFast.from_pretrained(tokenizer_name) #'./mbart_tokenizer_fast'
     print(tokenizer.tokenize('夢が落ちてく場所をずっとずっと探してた'))
     print(tokenizer('夢が落ちてく場所をずっとずっと探してた'))
 # ['▁', '夢', 'が', '落ち', 'て', 'く', '場所', 'を', 'ずっと', 'ずっと', '探', 'してた']

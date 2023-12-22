@@ -388,7 +388,7 @@ class MBartForConditionalGenerationCharLevel(MBartForConditionalGeneration):
             stopping_criteria: Optional[StoppingCriteriaList] = None,
             max_length: Optional[int] = None,
             pad_token_id: Optional[int] = None,
-            eos_token_id: Optional[int] = None,
+            eos_token_id: Optional[int] = None, #listは受け付けないよう変更されている
             output_attentions: Optional[bool] = None,
             output_hidden_states: Optional[bool] = None,
             output_scores: Optional[bool] = None,
@@ -1916,7 +1916,7 @@ class ForcedBOSTokenLogitsProcessorPrefixDecoder(LogitsProcessor):
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
         cur_len = input_ids.shape[-1]
-        if cur_len == 3:
+        if cur_len == 3: #ここだけ違う　元々は1
             num_tokens = scores.shape[1]
             scores[:, [i for i in range(num_tokens) if i != self.bos_token_id]] = -float("inf")
             scores[:, self.bos_token_id] = 0

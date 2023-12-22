@@ -79,7 +79,7 @@ from models.MBarts import (
 )
 
 sys.path.insert(1, os.path.join(sys.path[0], '../'))
-from utils_common.utils import calculate_acc, RhymeUtil, RhymeCaculator, PosSeg, calculate_acc_2d
+from utils_common.utils import calculate_acc, RhymeUtil, RhymeCaculator, PosSeg, calculate_acc_2d, SyllableCounterJA
 
 # from LM.ngram.language_model import LanguageModel
 
@@ -651,6 +651,7 @@ class TranslationModule(BaseTransformer):
         if self.hparams.dataset_class not in ['Seq2SeqDataset', 'Seq2SeqDatasetAdapt']:
             # Compute format accuracy
             out_lens = [len(i.strip()) for i in preds]
+            # out_lens = SyllableCounterJA.count_syllable_sentence_batch(preds) #日本語版ならこちらに変更
             assert type(batch['tgt_lens']) == torch.Tensor
             assert type(out_lens) == list
             tgt = batch["tgt_lens"].squeeze().tolist()

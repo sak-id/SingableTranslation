@@ -10,7 +10,6 @@ import socket
 from logging import getLogger
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Tuple, Union
-#import evaluate # pip install evaluate
 
 import git
 import numpy as np
@@ -26,8 +25,8 @@ from .sentence_splitter import add_newline_to_end_of_each_sentence
 from transformers import BartTokenizer, EvalPrediction, PreTrainedTokenizer, T5Tokenizer
 from transformers.file_utils import cached_property
 from transformers.models.bart.modeling_bart import shift_tokens_right
-# from datasets import load_metric
-import evaluate
+from datasets import load_metric
+# import evaluate
 
 sys.path.insert(1, os.path.join(sys.path[0], '../'))
 from utils_common.utils import TextCorrupterEn, TextCorrupterCh
@@ -80,7 +79,7 @@ def calculate_sacrebleu(out, ref, ja_tokenize=True):
     ref = [[i] for i in ref]
     #metric = load_metric('sacrebleu')
     #load_metric cannot use in future
-    metric = evaluate.load("sacrebleu")
+    metric = load_metric("sacrebleu")
     if ja_tokenize == True:
         result = metric.compute(predictions=out, references=ref, tokenize='ja-mecab')
     else:
@@ -95,7 +94,7 @@ def calculate_sentence_bleu(out, ref):
     ret = []
     #metric = load_metric('sacrebleu')
     #load_metric cannot use in future
-    metric = evaluate.load("sacrebleu")
+    metric = load_metric("sacrebleu")
     for i in range(len(out)):
         t = metric.compute(predictions=out[i], references=ref[i], tokenize='ja-mecab', use_effective_order=True)
         ret.append(t['score'])
