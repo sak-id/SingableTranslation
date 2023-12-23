@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-DEVICE=0
+DEVICE=1
 SEED=42
 
 # finetuning with new tokenizer "mbart_tokenizer_fast_ja_prefix_lrs_notsep" (add special tokens)
@@ -8,14 +8,14 @@ SEED=42
 TRAIN_SCRIPT=finetune.py
 LOGGER=default # default | wandb
 
-TOKENIZER='./tokenizers/mbart_tokenizer_fast_ja_prefix_lrs_notsep'
-# TOKENIZER='facebook/mbart-large-50-one-to-many-mmt'
+# TOKENIZER='./tokenizers/mbart_tokenizer_fast_ja_prefix_lrs_notsep'
+TOKENIZER='./tokenizers/mbart_tokenizer_fast_ja_add_tokens_notsep'
 MODEL_CLASS=MBartForConditionalGeneration
 # MODEL="facebook/mbart-large-50"
 MODEL="facebook/mbart-large-50-one-to-many-mmt"
 # SHORT_MODEL_NAME=boundary_encoder_prefix_rev
 SHORT_MODEL_NAME=mbart_addtoken_notused_plain
-ATTEMP=2
+ATTEMP=3
 
 DATASET_VER=data_bt
 # DATASET_CLASS=Seq2SeqDatasetPrefixEncoderBdr
@@ -23,7 +23,7 @@ DATASET_CLASS=Seq2SeqDataset
 CONSTRAINT_TYPE=reference
 SRC_LANG=en_XX
 TGT_LANG=ja_XX
-NUM_WORKERS=2
+NUM_WORKERS=3
 
 WARMUP_STEPS=2500
 # BS=40                   # fp32: GPU2: gpu:32   |   fp16:  48  (4:15/epoch), 80 64(when)  （2:43/epoch）

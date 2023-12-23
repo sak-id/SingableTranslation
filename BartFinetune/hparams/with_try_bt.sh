@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
-DEVICE=0
+DEVICE=1
 SEED=42
 
 # --------- For training ----------
 TRAIN_SCRIPT=finetune.py
 LOGGER=default # default | wandb
 
-# TOKENIZER='./tokenizers/mbart_tokenizer_fast_ja_prefix_lrs_notsep'
-# TOKENIZER='./tokenizers/mbart_tokenizer_fast_unmodified'
-TOKENIZER='facebook/mbart-large-50-one-to-many-mmt'
+TOKENIZER='./tokenizers/mbart_tokenizer_fast'
+# TOKENIZER='facebook/mbart-large-50-one-to-many-mmt'
 # MODEL_CLASS=MBartForConditionalGenerationCharLevel
 MODEL_CLASS=MBartForConditionalGeneration
 # MODEL="facebook/mbart-large-50"
 MODEL="facebook/mbart-large-50-one-to-many-mmt"
 # SHORT_MODEL_NAME=boundary_encoder_prefix_rev
 SHORT_MODEL_NAME=mbart_plain
-ATTEMP=4
+ATTEMP=6
 
 DATASET_VER=data_bt
 # DATASET_CLASS=Seq2SeqDatasetPrefixEncoderBdr

@@ -18,7 +18,9 @@ sys.path.insert(2, os.path.normpath(os.path.join(sys.path[0], '../../')))
 from utils.utils import *
 print("library imported")
 
-TOKENIZER_NAME = './mbart_tokenizer_fast_ja_prefix_lrs_notsep' # tokenizer name for saving
+# TOKENIZER_NAME = './mbart_tokenizer_fast_ja_prefix_lrs_notsep' # tokenizer name for saving
+TOKENIZER_NAME = './mbart_tokenizer_fast_ja_add_tokens_notsep'
+DEFAULT_NAME = './mbart_tokenizer_fast'
 
 def _main():
     pass
@@ -65,6 +67,7 @@ def add_special_tokens_for_prefix():
     """
 
     tokenizer = MBart50TokenizerFast.from_pretrained('./mbart_tokenizer_fast')
+    print("tokenizer loaded")
     # additional_special_tokens: tokens in this list will not be split by the tokenizer
     tokenizer.add_special_tokens({
         'additional_special_tokens': prefix_tokens + len_tokens + rhyme_tokens + stress_tokens + doc_tokens

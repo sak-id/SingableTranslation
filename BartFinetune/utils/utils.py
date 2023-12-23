@@ -3510,6 +3510,7 @@ class Seq2SeqDatasetPrefixDecoderDoc(AbstractSeq2SeqDataset):
 
 class Seq2SeqDataset(AbstractSeq2SeqDataset):
     """A dataset that calls prepare_seq2seq_batch."""
+    """Adapted for Japanese"""
 
     def __init__(
             self,
