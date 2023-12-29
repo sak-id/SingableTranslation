@@ -7,6 +7,9 @@ import torch.nn.functional as F
 # for all langs
 from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
 
+MODEL_VER = 'mbart_plain_data_bt_5'
+MODEL_PATH = '/raid/ieda/lyric_result/{}/best_tfmr'.format(MODEL_VER)
+
 def _main():
     # Load model from local checkpoints
     # tokenizer = MBart50TokenizerFast.from_pretrained("./tokenizers/mbart_tokenizer_fast_ch_prefix_lrs2")
@@ -17,8 +20,12 @@ def _main():
     # tokenizer = MBart50TokenizerFast.from_pretrained('LongshenOu/lyric-trans-en2zh')
 
     # Load from huggingface for all langs
-    model = MBartForConditionalGeneration.from_pretrained('facebook/mbart-large-50-one-to-many-mmt')
-    tokenizer = MBart50TokenizerFast.from_pretrained('facebook/mbart-large-50-one-to-many-mmt',src_lang="en_XX")
+    # model = MBartForConditionalGeneration.from_pretrained('facebook/mbart-large-50-one-to-many-mmt')
+    # tokenizer = MBart50TokenizerFast.from_pretrained('facebook/mbart-large-50-one-to-many-mmt',src_lang="en_XX")
+
+    # Load from ieda's local checkpoints
+    model = MBartForConditionalGeneration.from_pretrained(MODEL_PATH)
+    tokenizer = MBart50TokenizerFast.from_pretrained('./tokenizers/mbart_tokenizer_fast_ja_prefix_lrs_notsep')
 
     device = 'cuda'
     model.to(device)
@@ -31,86 +38,98 @@ def _main():
         "I can show you the world shining simmering splendid",
         'Tell me princess now when did you last let your heart decide',
     ]
-    # tokenizer.src_lang = "en_XX"
-    # tokenizer.tgt_lang = 'ja_XX' # 'zh_CN'
+    tokenizer.src_lang = "en_XX"
+    tokenizer.tgt_lang = 'ja_XX' # 'zh_CN'
     # encoded_input = tokenizer(text, return_tensors="pt", padding=True).to(device)
     encoded_input = tokenizer(text,return_tensors="pt", padding=True).to(device)
     
     # input_ids = encoded_input['input_ids']
     # attention_mask = encoded_input['attention_mask']
+
+    # No constraints
+    input_ids = encoded_input['input_ids'].to(device)
+    attention_mask = encoded_input['attention_mask'].to(device)
     print('----- Input -----')
     for line in text:
         print(line)
     print('-----------------')
 
     # Length constraints
-    """
-    desired_length = [12, 9, 8]
-    tgt_lens = ['len_{}'.format(x) for x in desired_length]
-    t1 = tokenizer(
-        tgt_lens,
-        add_special_tokens=False,
-        return_tensors='pt',
-        max_length=1,
-        padding=False,
-        truncation=True,
-    )
-    tgt_lens = t1['input_ids'].to(device)
-    attn_len = t1['attention_mask'].to(device)
+    # desired_length = [12, 9, 8]
+    # desired_length = [6, 8, 7, 7, 14, 14]
+    # tgt_lens = ['len_{}'.format(x) for x in desired_length]
+    # t1 = tokenizer(
+    #     tgt_lens,
+    #     add_special_tokens=False,
+    #     return_tensors='pt',
+    #     max_length=1,
+    #     padding=False,
+    #     truncation=True,
+    # )
+    # tgt_lens = t1['input_ids'].to(device)
+    # attn_len = t1['attention_mask'].to(device)
 
     # Rhyme constraint
-    desired_rhyme = [1, 1, 1]  # type 1 for all three sentences: rhyme {a, ia, ua}
-    tgt_rhymes = ['rhy_{}'.format(x) for x in desired_rhyme]
-    t2 = tokenizer(
-        tgt_rhymes,
-        add_special_tokens=False,
-        return_tensors='pt',
-        max_length=1,
-        padding=False,
-        truncation=True,
-    )
-    tgt_rhymes = t2['input_ids'].to(device)
+    # desired_rhyme = [1, 1, 1]  # type 1 for all three sentences: rhyme {a, ia, ua}
+    # tgt_rhymes = ['rhy_{}'.format(x) for x in desired_rhyme]
+    # t2 = tokenizer(
+    #     tgt_rhymes,
+    #     add_special_tokens=False,
+    #     return_tensors='pt',
+    #     max_length=1,
+    #     padding=False,
+    #     truncation=True,
+    # )
+    # tgt_rhymes = t2['input_ids'].to(device)
     """
 
     # Process target stress constraint
     """
-    desired_boundary = [
-        [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 1, 0],
-    ]
-    tgt_stress = [''.join(['str_{}'.format(i) for i in x[::-1]]) for x in desired_boundary]
-    t3 = tokenizer(
-        tgt_stress,
-        return_tensors='pt',
-        add_special_tokens=False,
-        padding=True,
-    )
-    # add zero padding to 20 (max length) here
-    tgt_stress = t3['input_ids'].to(device)
-    attn_str = t3['attention_mask'].to(device)
-    assert tgt_stress.dim() == 2
-    pad_bit = 20 - tgt_stress.shape[1]
-    tgt_stress = F.pad(tgt_stress, (0, pad_bit, 0, 0), value=1).to(device)
-    attn_str = F.pad(attn_str, (0, pad_bit, 0, 0), value=1).to(device)
-    
+    # desired_boundary = [
+    #     [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #     [0, 1, 0, 0, 0, 0, 0, 0, 0],
+    #     [0, 0, 0, 1, 0, 0, 1, 0],
+    # ]
+    # desired_boundary = [
+    #     [0, 1, 0, 1, 0, 0],
+    #     [0, 1, 0, 0, 1, 0, 0, 0],
+    #     [0, 1, 0, 1, 0, 0, 0],
+    #     [0, 1, 1, 0, 1, 0, 0],
+    #     [0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
+    #     [0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0],
+    # ]
+    # tgt_stress = [''.join(['str_{}'.format(i) for i in x[::-1]]) for x in desired_boundary]
+    # t3 = tokenizer(
+    #     tgt_stress,
+    #     return_tensors='pt',
+    #     add_special_tokens=False,
+    #     padding=True,
+    # )
+    # # add zero padding to 20 (max length) here
+    # tgt_stress = t3['input_ids'].to(device)
+    # attn_str = t3['attention_mask'].to(device)
+    # assert tgt_stress.dim() == 2
+    # pad_bit = 20 - tgt_stress.shape[1]
+    # tgt_stress = F.pad(tgt_stress, (0, pad_bit, 0, 0), value=1).to(device)
+    # attn_str = F.pad(attn_str, (0, pad_bit, 0, 0), value=1).to(device)
+
     # Concat length and stress constraints with encoder input ids
-    input_ids = torch.cat((tgt_lens, tgt_stress, input_ids), dim=1).to(device)
-    attention_mask = torch.cat((attn_len, attn_str, attention_mask), dim=1).to(device)
+    # input_ids = torch.cat((tgt_lens, tgt_stress, input_ids), dim=1).to(device)
+    # attention_mask = torch.cat((attn_len, attn_str, attention_mask), dim=1).to(device)
     
     # Prepare decoder input ids, put rhyme info here
-    decoder_input_ids = torch.zeros(size=(3,2), dtype=torch.long).to(device)
-    decoder_input_ids[:, 0] = tgt_rhymes.squeeze()
-    decoder_input_ids[:, 1] = 2  # set the 3rd col to decoder_start_token_id
-    """
+    # decoder_input_ids = torch.zeros(size=(3,2), dtype=torch.long).to(device)
+    # decoder_input_ids[:, 0] = tgt_rhymes.squeeze()
+    # decoder_input_ids[:, 1] = 2  # set the 3rd col to decoder_start_token_id
+    
     # Generate translation
     generated_tokens = model.generate(
         **encoded_input,
         # inputs=input_ids,
         # attention_mask=attention_mask,
-        #decoder_input_ids=decoder_input_ids,
-        # num_beams=5,
-        # max_length=36,
+        # decoder_input_ids=decoder_input_ids,
+        num_beams=5,
+        max_length=36,
         forced_bos_token_id=tokenizer.lang_code_to_id["ja_XX"] # zh_CN
     )
 
@@ -129,6 +148,14 @@ def _main():
     # 輝く、輝く、すばらしい
     # さあ、お姫様、いつですか?
     # 最後にあなたの心が決定を任せるか?
+
+    # finetune後(No constraints)
+    # 世界を見せられる 
+    # 輝く 輝く 素晴らしく
+    # 伝えてよ 姫 いつしたの
+    # 最後に心が決めさせてくれたの
+    # 輝く輝く すばらしい世界を君に見せられる
+    # 今伝えて プリンセス 最後には 心が決めさせてくれた
 
 
 
