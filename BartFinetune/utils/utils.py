@@ -227,51 +227,6 @@ class AbstractSeq2SeqDataset(Dataset):
         raise NotImplementedError("You must implement this")
 
 
-# class LegacySeq2SeqDataset(AbstractSeq2SeqDataset):
-class Seq2SeqDataset(AbstractSeq2SeqDataset): # MBartForConditionalGeneration 動作確認
-    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
-        """Call tokenizer on src and tgt_lines"""
-        index = index + 1  # linecache starts at 1
-        source_line = self.prefix + linecache.getline(str(self.src_file), index).rstrip("\n")
-        tgt_line = linecache.getline(str(self.tgt_file), index).rstrip("\n")
-        assert source_line, f"empty source line for index {index}"
-        assert tgt_line, f"empty tgt line for index {index}"
-        source_inputs = self.encode_line(self.tokenizer, source_line, self.max_source_length)
-        target_inputs = self.encode_line(self.tokenizer, tgt_line, self.max_target_length)
-
-        source_ids = source_inputs["input_ids"].squeeze()
-        target_ids = target_inputs["input_ids"].squeeze()
-        src_mask = source_inputs["attention_mask"].squeeze()
-        return {
-            "input_ids": source_ids,
-            "attention_mask": src_mask,
-            "labels": target_ids,
-        }
-
-    def encode_line(self, tokenizer, line, max_length, pad_to_max_length=True, return_tensors="pt"):
-        """Only used by LegacyDataset"""
-        return tokenizer(
-            [line],
-            max_length=max_length,
-            padding="max_length" if pad_to_max_length else None,
-            truncation=True,
-            return_tensors=return_tensors,
-            **self.dataset_kwargs,
-        )
-
-    def collate_fn(self, batch) -> Dict[str, torch.Tensor]:
-        input_ids = torch.stack([x["input_ids"] for x in batch])
-        masks = torch.stack([x["attention_mask"] for x in batch])
-        target_ids = torch.stack([x["labels"] for x in batch])
-        pad_token_id = self.pad_token_id
-        y = trim_batch(target_ids, pad_token_id)
-        source_ids, source_mask = trim_batch(input_ids, pad_token_id, attention_mask=masks)
-        batch = {
-            "input_ids": source_ids,
-            "attention_mask": source_mask,
-            "labels": y,
-        }
-        return batch
 
 class Seq2SeqDatasetEmbStr(AbstractSeq2SeqDataset):
     """

@@ -83,7 +83,7 @@ class BoundaryUtil:
             for ch in token.morph.get("Reading")[0]:
                 if ch in self.small_word:
                     num_of_syllable -= 1
-            assert num_of_syllable > 0
+            assert num_of_syllable >= 0
             word_prompt = ['0' for i in range(num_of_syllable)]
             word_prompt[-1] = '1'
             ret += word_prompt
@@ -138,7 +138,7 @@ class BoundaryUtil:
             for ch in token.morph.get("Reading")[0]:
                 if ch in self.small_word:
                     num_of_syllable -= 1
-            assert num_of_syllable > 0
+            assert num_of_syllable >= 0, "Error in line: {}".format(s)
             word_prompt = ['0' for i in range(num_of_syllable)]
             if i in indices:
                 word_prompt[-1] = '1'
@@ -969,7 +969,7 @@ class StressUtilEn:
         res = []
         for w in text:
             word, pos = w[0], w[1]
-            num_syl = SyllableCounter.count_syllable_word(word, test=False)
+            num_syl = SyllableCounter.count_syllable_word(word) # test=False
             is_stress = 0 if pos in self.unstressed_type else 1
             res += [str(is_stress) for i in range(num_syl)]
         res = ''.join(res)

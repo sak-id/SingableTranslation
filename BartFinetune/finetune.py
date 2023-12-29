@@ -32,12 +32,12 @@ from metrics import BoundaryRecall
 from utils.callbacks import Seq2SeqLoggingCallback, get_checkpoint_callback, get_early_stopping_callback
 from utils.utils import (
     ROUGE_KEYS,
-    Seq2SeqDataset,
+    # Seq2SeqDataset,
     Seq2SeqDatasetAdapt,
     Seq2SeqDatasetWithConstraints,
     Seq2SeqDatasetPrefixEncoder,
     Seq2SeqDatasetPrefixDecoder,
-    Seq2SeqDatasetPrefixEncoderLength,
+    # Seq2SeqDatasetPrefixEncoderLength,
     Seq2SeqDatasetPrefixEncoderRhyme,
     Seq2SeqDatasetPrefixDecoderLength,
     Seq2SeqDatasetPrefixDecoderRhyme,
@@ -63,6 +63,10 @@ from utils.utils import (
     calculate_sacrebleu,
     read_json,
     get_dataset_by_type,
+)
+from utils.utils_ja import (
+    Seq2SeqDataset,
+    Seq2SeqDatasetJaPrefixEncoderLength,
 )
 
 # Add the parent dir to path
@@ -93,7 +97,6 @@ def print_gpu_utilization():
     info = nvmlDeviceGetMemoryInfo(handle)
     print(f"GPU memory occupied: {info.used // 1024 ** 2} MB.")
 
-#BaseTransformerはutilのligtning_base.py内で定義
 class TranslationModule(BaseTransformer):
     mode = "translation"
     loss_names = ["loss"]
@@ -274,7 +277,7 @@ class TranslationModule(BaseTransformer):
             'Seq2SeqDatasetEmbStr',
             'Seq2SeqDatasetEmbBdr',
             'Seq2SeqDatasetPrefixEncoderStr',
-            'Seq2SeqDatasetPrefixEncoderBdr', #現在選択中
+            'Seq2SeqDatasetPrefixEncoderBdr',
             'Seq2SeqDatasetPrefixEncoderBdrRev',
             'Seq2SeqDatasetPrefixEncoderBdrDenoise',
         ]:
@@ -283,7 +286,7 @@ class TranslationModule(BaseTransformer):
             "Seq2SeqDataset",
             'Seq2SeqDatasetAdapt',
             'Seq2SeqDatasetPrefixEncoder',
-            'Seq2SeqDatasetPrefixEncoderLength',
+            'Seq2SeqDatasetJaPrefixEncoderLength',
             'Seq2SeqDatasetPrefixEncoderRhyme',
             'Seq2SeqDatasetEmbLen',
             'Seq2SeqDatasetEmbRhy',
@@ -576,7 +579,7 @@ class TranslationModule(BaseTransformer):
             "Seq2SeqDataset",
             'Seq2SeqDatasetAdapt',
             'Seq2SeqDatasetPrefixEncoder',
-            'Seq2SeqDatasetPrefixEncoderLength',
+            'Seq2SeqDatasetJaPrefixEncoderLength',
             'Seq2SeqDatasetPrefixEncoderRhyme',
             'Seq2SeqDatasetLenEncRhyEnc',
         ]:
