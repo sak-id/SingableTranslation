@@ -24,9 +24,9 @@ assert os.path.exists(DATA_DIR)
 create_if_not_exist(OUT_DIR)
 assert os.path.exists(CONST_OUT_DIR)
 
-sys.path.insert(1, os.path.join(sys.path[0], '../../../'))
+# sys.path.insert(1, os.path.join(sys.path[0], '../../../'))
 
-from utils_common.utils import (
+from utils import (
     ls, jpath,
     SyllableCounterJA,
     BoundaryUtilEn,

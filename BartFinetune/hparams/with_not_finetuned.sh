@@ -13,7 +13,7 @@ TOKENIZER='facebook/mbart-large-50-one-to-many-mmt'
 MODEL_CLASS=MBartForConditionalGeneration
 MODEL="facebook/mbart-large-50-one-to-many-mmt"
 SHORT_MODEL_NAME=mbart_not_finetuned
-ATTEMP=2
+ATTEMP=3
 
 DATASET_VER=data_bt
 # DATASET_CLASS=Seq2SeqDatasetPrefixEncoderBdr
