@@ -30,16 +30,109 @@ from datasets import load_metric
 
 sys.path.insert(1, os.path.join(sys.path[0], '../'))
 from utils_common.utils import TextCorrupterEn, TextCorrupterCh
-from utils.utils import (
-    AbstractSeq2SeqDataset,
-    trim_batch,
-)
+
 try:
     from fairseq.data.data_utils import batch_by_size
 
     FAIRSEQ_AVAILABLE = True
 except (ImportError, ModuleNotFoundError):
     FAIRSEQ_AVAILABLE = False
+
+def trim_batch(
+        input_ids,
+        pad_token_id,
+        attention_mask=None,
+):
+    """Remove columns that are populated exclusively by pad_token_id"""
+    keep_column_mask = input_ids.ne(pad_token_id).any(dim=0)
+    if attention_mask is None:
+        return input_ids[:, keep_column_mask]
+    else:
+        return (input_ids[:, keep_column_mask], attention_mask[:, keep_column_mask])
+
+class AbstractSeq2SeqDataset(Dataset):
+    def __init__(
+            self,
+            tokenizer,
+            data_dir,
+            max_source_length,
+            max_target_length,
+            type_path="train",
+            n_obs=None,
+            prefix="",
+            **dataset_kwargs
+    ):
+        super().__init__()
+        self.src_file = Path(data_dir).joinpath(type_path + ".source")
+        self.tgt_file = Path(data_dir).joinpath(type_path + ".target")
+        self.len_file = Path(data_dir).joinpath(type_path + ".len")
+        if os.path.exists(self.len_file): #もし既存のlenファイルがあれば
+            self.src_lens = pickle_load(self.len_file) #pickle化したファイルを読み込む
+            self.used_char_len = False
+        else: #なければ作る
+            self.src_lens = self.get_char_lens(self.src_file)
+            self.used_char_len = True
+        self.max_source_length = max_source_length
+        self.max_target_length = max_target_length
+        assert min(self.src_lens) > 0, f"found empty line in {self.src_file}"
+        self.tokenizer = tokenizer
+        self.prefix = prefix if prefix is not None else ""
+
+        if n_obs is not None:
+            self.src_lens = self.src_lens[:n_obs]
+        self.pad_token_id = self.tokenizer.pad_token_id
+        self.dataset_kwargs = dataset_kwargs
+        dataset_kwargs.update({"add_prefix_space": True} if isinstance(self.tokenizer, BartTokenizer) else {})
+
+    def __len__(self):
+        return len(self.src_lens)
+
+    @staticmethod
+    def get_char_lens(data_file):
+        return [len(x) for x in Path(data_file).open().readlines()]
+
+    @cached_property
+    def tgt_lens(self):
+        """Length in characters of target documents"""
+        return self.get_char_lens(self.tgt_file)
+
+    def make_sortish_sampler(self, batch_size, distributed=False, shuffle=True, **kwargs):
+        if distributed:
+            return DistributedSortishSampler(self, batch_size, shuffle=shuffle, **kwargs)
+        else:
+            return SortishSampler(self.src_lens, batch_size, shuffle=shuffle)
+
+    def make_dynamic_sampler(self, max_tokens_per_batch=1024, **kwargs):
+        assert FAIRSEQ_AVAILABLE, "Dynamic batch size requires `pip install fairseq`"
+        assert not self.used_char_len, "You must call  python make_len_file.py before calling make_dynamic_sampler"
+        sorted_indices = list(self.make_sortish_sampler(1024, shuffle=False))
+
+        def num_tokens_in_example(i):
+            return min(self.src_lens[i], self.max_target_length)
+
+        # call fairseq cython function
+        batch_sampler: List[List[int]] = batch_by_size(
+            sorted_indices,
+            num_tokens_fn=num_tokens_in_example,
+            max_tokens=max_tokens_per_batch,
+            required_batch_size_multiple=64,
+        )
+        shuffled_batches = [batch_sampler[i] for i in np.random.permutation(range(len(batch_sampler)))]
+        # move the largest batch to the front to OOM quickly (uses an approximation for padding)
+        approximate_toks_per_batch = [max(self.src_lens[i] for i in batch) * len(batch) for batch in shuffled_batches]
+        largest_batch_idx = np.argmax(approximate_toks_per_batch)
+        shuffled_batches[0], shuffled_batches[largest_batch_idx] = (
+            shuffled_batches[largest_batch_idx],
+            shuffled_batches[0],
+        )
+        return shuffled_batches
+
+    def __getitem__(self, item):
+        raise NotImplementedError("You must implement this")
+
+    def collate_fn(self, batch):
+        raise NotImplementedError("You must implement this")
+
 
 # class LegacySeq2SeqDataset(AbstractSeq2SeqDataset):
 class Seq2SeqDataset(AbstractSeq2SeqDataset): # MBartForConditionalGeneration 動作確認

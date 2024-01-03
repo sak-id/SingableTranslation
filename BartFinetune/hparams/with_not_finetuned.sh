@@ -13,7 +13,7 @@ TOKENIZER='facebook/mbart-large-50-one-to-many-mmt'
 MODEL_CLASS=MBartForConditionalGeneration
 MODEL="facebook/mbart-large-50-one-to-many-mmt"
 SHORT_MODEL_NAME=mbart_not_finetuned
-ATTEMP=1
+ATTEMP=2
 
 DATASET_VER=data_bt
 # DATASET_CLASS=Seq2SeqDatasetPrefixEncoderBdr
@@ -26,7 +26,7 @@ NUM_WORKERS=2
 WARMUP_STEPS=2500
 # BS=40                   # fp32: GPU2: gpu:32   |   fp16:  48  (4:15/epoch), 80 64(when)  （2:43/epoch）
 # BS=16
-BS=8
+BS=16
 VAL_CHECK_INTERVAL=0.5 # 0.25
 EPOCHS=5               # 5
 LR=3e-5                 # 3e-5 default

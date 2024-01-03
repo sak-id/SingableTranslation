@@ -30,6 +30,10 @@ from datasets import load_metric
 
 sys.path.insert(1, os.path.join(sys.path[0], '../'))
 from utils_common.utils import TextCorrupterEn, TextCorrupterCh
+from utils.utils_ja import (
+    # Seq2SeqDataset,
+    Seq2SeqDatasetJaPrefixEncoderLength,
+)
 
 try:
     from fairseq.data.data_utils import batch_by_size
