@@ -31,7 +31,7 @@ from metrics import (
     BoundaryRecall
 )
 from utils_common.utils import (
-    RhymeUtil, save_json, PosSeg,
+    RhymeUtil, save_json, PosSeg, SyllableCounterJA,
     #FluencyCaculator,
     # , # PerpCaculator #, FluencyCaculator2
     calculate_acc_2d,
@@ -88,9 +88,10 @@ def compute_scores(args):
             tgt_rhymes.append(t2)
 
         # Compute format accuracy
-        out_lens = [len(i.strip()) for i in output_lns]
+        # out_lens = [len(i.strip()) for i in output_lns] #要変更
+        out_lens = SyllableCounterJA.count_syllable_sentence_batch(output_lns)
         len_acc = calculate_acc(out=out_lens, tgt=tgt_lens)
-        scores['format_accuracy'] = len_acc
+        scores['length_accuracy'] = len_acc
 
         # Compute rhyme accuracy
         rhyme_util = RhymeUtil()

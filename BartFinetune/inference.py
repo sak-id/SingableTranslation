@@ -161,14 +161,14 @@ def generate_translations(
             ).to(device)
 
             # Prepare logits processor for forced bos token id
-            bos_processor = ForcedBOSTokenLogitsProcessorPrefixDecoder(bos_token_id=250025)
+            bos_processor = ForcedBOSTokenLogitsProcessorPrefixDecoder(bos_token_id=250012)
 
             translation = model.generate(
                 input_ids=batch_input.input_ids,
                 attention_mask=batch_input.attention_mask,
                 decoder_input_ids=decoder_input_ids,
                 logits_processor=[bos_processor],
-                # forced_bos_token_id=250025,
+                # forced_bos_token_id=250012,
                 # length_penalty=1.0,
                 **generate_kwargs,
             )
@@ -186,7 +186,7 @@ def generate_translations(
                 if isinstance(batch[k], torch.Tensor):
                     batch[k] = batch[k].to(device)
 
-            bos_processor = ForcedBOSTokenLogitsProcessorPrefixDecoderLength(bos_token_id=250025)
+            bos_processor = ForcedBOSTokenLogitsProcessorPrefixDecoderLength(bos_token_id=250012)
 
             # Prepare decoder input ids
             decoder_input_ids = batch['labels'][:, :2].clone()  # [BS, 3]
@@ -263,7 +263,7 @@ def generate_translations(
             ).to(device)
 
             # Prepare logits processor for forced bos token id
-            bos_processor = ForcedBOSTokenLogitsProcessorPrefixDecoderLength(bos_token_id=250025)
+            bos_processor = ForcedBOSTokenLogitsProcessorPrefixDecoderLength(bos_token_id=250012)
 
             translation = model.generate(
                 input_ids=batch_input.input_ids,
@@ -317,7 +317,7 @@ def generate_translations(
             translation = model.generate(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
-                forced_bos_token_id=250025,
+                forced_bos_token_id=250012,
                 **generate_kwargs,
             )
             dec = tokenizer.batch_decode(translation, skip_special_tokens=True, clean_up_tokenization_spaces=False)
@@ -325,71 +325,108 @@ def generate_translations(
                 fout.write(hypothesis + "\n")
                 fout.flush()
     # Encoder-side prompt to control length
-    elif '/len_encoder_prefix' in model_name:
-        for idx, batch in enumerate(tqdm(dataloader)):
-            for k in batch:
-                if isinstance(batch[k], torch.Tensor):
-                    batch[k] = batch[k].to(device)
+    # elif '/len_encoder_prefix' in model_name:
+    elif 'len_encoder_prefix' in model_name:
+        print('Inference function: length control, encoder prefix')
+        for t in tqdm(list(zip(list(chunks(examples, batch_size)), list(chunks(constraints, batch_size))))):
+            batch_input_line, batch_constraint_line = t
+            batch_input_line = [prefix + text for text in batch_input_line]  # a batch of input sentences
+            batch_input = tokenizer(batch_input_line,
+                                    return_tensors="pt",
+                                    truncation=True,
+                                    padding="longest").to(device)
+            batch_tgt_len = []
+            for line in batch_constraint_line:
+                t1, t2 = line.split('\t')
+                tgt_len = 'len_{}'.format(t1)
+                batch_tgt_len.append(tgt_len)
+            t1 = tokenizer(batch_tgt_len,
+                           return_tensors="pt",
+                           add_special_tokens=False,
+                           max_length=1,
+                           padding=False,
+                           truncation=True, ).to(device)
 
-            if args.force == 'length':
-                output = model.generate(
-                    input_ids=batch["input_ids"],
-                    attention_mask=batch["attention_mask"],
-                    use_cache=True,
-                    forced_bos_token_id=250025,  # should be set for mBART-50
-                    bad_words_ids=bad_words_ids,
-                    num_beams=generate_kwargs['num_beams'],
-                    min_length=batch['tgt_lens'].item() + 4,  # force minimum gen len, only work when bs=1
-                    max_length=batch['tgt_lens'].item() + 4,  # s/a
-                )
-            elif args.force == 'no':
-                output = model.generate(
-                    input_ids=batch["input_ids"],
-                    attention_mask=batch["attention_mask"],
-                    forced_bos_token_id=250025,  # should be set for mBART-50
-                    bad_words_ids=bad_words_ids,
-                    num_beams=generate_kwargs['num_beams'],
-                    max_length=generate_kwargs['max_length'],
-                )
-            elif args.force == 'rhyme_first':
-                output = model.generate(
-                    input_ids=batch["input_ids"],
-                    attention_mask=batch["attention_mask"],
-                    forced_bos_token_id=250025,  # should be set for mBART-50
-                    bad_words_ids=bad_words_ids,
-                    num_beams=generate_kwargs['num_beams'],
-                    max_length=generate_kwargs['max_length'],
-                    tgt_rhymes=batch['tgt_rhymes']
-                )
-            elif args.force == 'rhyme_last':
-                output = model.generate(
-                    input_ids=batch["input_ids"],
-                    attention_mask=batch["attention_mask"],
-                    forced_bos_token_id=250025,  # should be set for mBART-50
-                    bad_words_ids=bad_words_ids,
-                    num_beams=generate_kwargs['num_beams'],
-                    max_length=generate_kwargs['max_length'],
-                    tgt_rhymes=batch['tgt_rhymes'],
-                    tgt_length=batch['tgt_lens'],
-                )
-            elif args.force == 'bdr':
-                # Biased decoding for boundary control
-                output = model.generate(
-                    input_ids=batch["input_ids"],
-                    attention_mask=batch["attention_mask"],
-                    forced_bos_token_id=250025,  # should be set for mBART-50
-                    bad_words_ids=bad_words_ids,
-                    num_beams=generate_kwargs['num_beams'],
-                    max_length=generate_kwargs['max_length'],
-                    bdr_pos=batch['bdr_pos']
-                )
-            else:
-                raise Exception('Wrong force type.')
+            # Prepare prompted encoder input
+            batch_tgt_len = t1.input_ids
+            batch_tgt_len_attn = t1.attention_mask
+            input_ids = torch.cat((batch_tgt_len, batch_input.input_ids), dim=1)
+            attention_mask = torch.cat((batch_tgt_len_attn, batch_input.attention_mask), dim=1)
 
-            dec = tokenizer.batch_decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=False)
+            translation = model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                forced_bos_token_id=250012,
+                **generate_kwargs,
+            )
+            dec = tokenizer.batch_decode(translation, skip_special_tokens=True, clean_up_tokenization_spaces=False)
             for hypothesis in dec:
                 fout.write(hypothesis + "\n")
                 fout.flush()
+        # for idx, batch in enumerate(tqdm(dataloader)):
+            # for k in batch:
+            #     if isinstance(batch[k], torch.Tensor):
+            #         batch[k] = batch[k].to(device)
+
+            # if args.force == 'length':
+            #     output = model.generate(
+            #         input_ids=batch["input_ids"],
+            #         attention_mask=batch["attention_mask"],
+            #         use_cache=True,
+            #         forced_bos_token_id=250012,  # should be set for mBART-50
+            #         bad_words_ids=bad_words_ids,
+            #         num_beams=generate_kwargs['num_beams'],
+            #         min_length=batch['tgt_lens'].item() + 4,  # force minimum gen len, only work when bs=1
+            #         max_length=batch['tgt_lens'].item() + 4,  # s/a
+            #     )
+            # elif args.force == 'no':
+            #     output = model.generate(
+            #         input_ids=batch["input_ids"],
+            #         attention_mask=batch["attention_mask"],
+            #         forced_bos_token_id=250012,  # should be set for mBART-50
+            #         bad_words_ids=bad_words_ids,
+            #         num_beams=generate_kwargs['num_beams'],
+            #         max_length=generate_kwargs['max_length'],
+            #     )
+            # elif args.force == 'rhyme_first':
+            #     output = model.generate(
+            #         input_ids=batch["input_ids"],
+            #         attention_mask=batch["attention_mask"],
+            #         forced_bos_token_id=250012,  # should be set for mBART-50
+            #         bad_words_ids=bad_words_ids,
+            #         num_beams=generate_kwargs['num_beams'],
+            #         max_length=generate_kwargs['max_length'],
+            #         tgt_rhymes=batch['tgt_rhymes']
+            #     )
+            # elif args.force == 'rhyme_last':
+            #     output = model.generate(
+            #         input_ids=batch["input_ids"],
+            #         attention_mask=batch["attention_mask"],
+            #         forced_bos_token_id=250012,  # should be set for mBART-50
+            #         bad_words_ids=bad_words_ids,
+            #         num_beams=generate_kwargs['num_beams'],
+            #         max_length=generate_kwargs['max_length'],
+            #         tgt_rhymes=batch['tgt_rhymes'],
+            #         tgt_length=batch['tgt_lens'],
+            #     )
+            # elif args.force == 'bdr':
+            #     # Biased decoding for boundary control
+            #     output = model.generate(
+            #         input_ids=batch["input_ids"],
+            #         attention_mask=batch["attention_mask"],
+            #         forced_bos_token_id=250012,  # should be set for mBART-50
+            #         bad_words_ids=bad_words_ids,
+            #         num_beams=generate_kwargs['num_beams'],
+            #         max_length=generate_kwargs['max_length'],
+            #         bdr_pos=batch['bdr_pos']
+            #     )
+            # else:
+            #     raise Exception('Wrong force type.')
+
+            # dec = tokenizer.batch_decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=False)
+            # for hypothesis in dec:
+            #     fout.write(hypothesis + "\n")
+            #     fout.flush()
     # Encoder-side prompt to control rhyme
     elif '/rhy_encoder_prefix' in model_name or args.dataset_class in [
         'Seq2SeqDatasetLenEncRhyEnc',
@@ -402,7 +439,7 @@ def generate_translations(
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"],
                 use_cache=True,
-                forced_bos_token_id=250025,  # should be set for mBART-50
+                forced_bos_token_id=250012,  # should be set for mBART-50
                 num_beams=generate_kwargs['num_beams'],
                 max_length=generate_kwargs['max_length'],
                 min_length=1 + 4,
@@ -437,7 +474,7 @@ def generate_translations(
                 translation = model.generate(
                     input_ids=batch["input_ids"],
                     attention_mask=batch["attention_mask"],
-                    forced_bos_token_id=250025,
+                    forced_bos_token_id=250012,
                     num_beams=generate_kwargs['num_beams'],
                     min_length=batch['tgt_lens'].item() + 4,  # force minimum gen len, only work when bs=1
                     max_length=batch['tgt_lens'].item() + 4,  # s/a
@@ -460,7 +497,7 @@ def generate_translations(
                     input_ids=batch["input_ids"],
                     attention_mask=batch["attention_mask"],
                     use_cache=True,
-                    forced_bos_token_id=250025,  # should be set for mBART-50
+                    forced_bos_token_id=250012,  # should be set for mBART-50
                     emb_ids=batch["emb_ids"],
                     num_beams=generate_kwargs['num_beams'],
                     min_length=batch['tgt_lens'].item() + 4,  # force minimum gen len, only work when bs=1
@@ -475,7 +512,7 @@ def generate_translations(
                     input_ids=batch["input_ids"],
                     attention_mask=batch["attention_mask"],
                     use_cache=True,
-                    forced_bos_token_id=250025,  # should be set for mBART-50
+                    forced_bos_token_id=250012,  # should be set for mBART-50
                     emb_ids=batch["emb_ids"],
                     num_beams=generate_kwargs['num_beams'],
                     max_length=generate_kwargs['max_length'],
@@ -526,7 +563,7 @@ def generate_translations(
                     input_ids=batch["input_ids"],
                     attention_mask=batch["attention_mask"],
                     use_cache=True,
-                    forced_bos_token_id=250025,  # should be set for mBART-50
+                    forced_bos_token_id=250012,  # should be set for mBART-50
                     emb_ids=batch["emb_ids"],
                     num_beams=generate_kwargs['num_beams'],
                     max_length=generate_kwargs['max_length'],
@@ -557,7 +594,7 @@ def generate_translations(
             decoder_input_ids[:, n] = 2
 
             # Prepare logits processor for forced bos token id
-            bos_processor = ForcedBOSTokenLogitsProcessorPrefixDecoderLength(bos_token_id=250025)
+            bos_processor = ForcedBOSTokenLogitsProcessorPrefixDecoderLength(bos_token_id=250012)
 
             if args.force == 'length':
                 raise NotImplementedError
@@ -606,7 +643,7 @@ def generate_translations(
 
             # Prepare logits processor for forced bos token id
             bos_processor = ForcedBOSTokenLogitsProcessorPrefixDecoderN(
-                bos_token_id=250025,
+                bos_token_id=250012,
                 prefix_length=n,
             )
 
@@ -654,7 +691,7 @@ def generate_translations(
 
             # Prepare logits processor for forced bos token id
             bos_processor = ForcedBOSTokenLogitsProcessorPrefixDecoderN(
-                bos_token_id=250025,
+                bos_token_id=250012,
                 prefix_length=n,
             )
 
@@ -792,10 +829,12 @@ def run_generate(verbose=True):
 
     if os.path.exists(args.constraint_path):
         # args.constraint_path.exists():
+        print(args.constraint_path)
         with open(args.constraint_path) as f:
             constraints = [x.rstrip() for x in f.readlines()]
     else:
         constraints = None
+        print('No constraint file found.')
 
     if args.n_obs > 0:
         examples = examples[: args.n_obs]

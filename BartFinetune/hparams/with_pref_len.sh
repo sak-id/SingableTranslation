@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-DEVICE=1
+DEVICE=0
 SEED=42
 
 # finetuning with new tokenizer "mbart_tokenizer_fast_ja_prefix_lrs_notsep" (add special tokens)
@@ -48,6 +48,7 @@ LENGTH_TARGET=tgt # src | tgt
 TEST_BOS_TOKEN_ID=250025
 TEST_SRC_LANG=en_XX # zh_CN
 TEST_BS=80
+# TEST_BS=1 # set 1 for FORCE=length
 FORCE=no # length | rhyme | no
 
 TEST_DATASET_DIR="/raid/ieda/trans_jaen_dataset/Dataset/datasets/${DATASET_VER}"
