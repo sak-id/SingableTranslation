@@ -291,13 +291,14 @@ def play_mbart_training(model):
     print(tokenizer.batch_decode(generated_tokens, skip_special_tokens=True))
 
 
+# Modified for not using bad_word_list by ieda
 class MBartForConditionalGenerationCharLevel(MBartForConditionalGeneration):
     def __init__(self, config: MBartConfig):
         super().__init__(config)
 
         # Read bad word list
         import os
-        self.bad_word_list = read_json(os.path.join(os.path.dirname(__file__), '../tokenizers/misc/bad_word_list.json'))
+        # self.bad_word_list = read_json(os.path.join(os.path.dirname(__file__), '../tokenizers/misc/bad_word_list.json'))
 
     def forward(
             self,
@@ -356,7 +357,7 @@ class MBartForConditionalGenerationCharLevel(MBartForConditionalGeneration):
         lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias
 
         # Mask out bad (multi-char) words
-        lm_logits[:, :, self.bad_word_list] = torch.tensor(float('-inf'), device=lm_logits.device)
+        # lm_logits[:, :, self.bad_word_list] = torch.tensor(float('-inf'), device=lm_logits.device)
 
         masked_lm_loss = None
         if labels is not None:

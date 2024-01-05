@@ -80,6 +80,7 @@ from models.MBarts import (
     ForcedBOSTokenLogitsProcessorPrefixDecoder,
     ForcedBOSTokenLogitsProcessorPrefixDecoderLength,
     ForcedBOSTokenLogitsProcessorPrefixDecoderN,
+    MBartForConditionalGenerationCharLevel,
 )
 
 sys.path.insert(1, os.path.join(sys.path[0], '../'))

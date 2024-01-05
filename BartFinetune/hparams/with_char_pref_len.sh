@@ -2,31 +2,33 @@
 DEVICE=0
 SEED=42
 
+# finetuning with MBartForConditionalGenerationCharLevel (writen by original author)
+
 # --------- For training ----------
 TRAIN_SCRIPT=finetune.py
 LOGGER=default # default | wandb
 
-TOKENIZER='./tokenizers/mbart_tokenizer_fast'
-# MODEL_CLASS=MBartForConditionalGenerationCharLevel
-MODEL_CLASS=MBartForConditionalGeneration
+# TOKENIZER='./tokenizers/mbart_tokenizer_fast_ja_prefix_lrs_notsep'
+TOKENIZER='./tokenizers/mbart_tokenizer_fast_ja_add_tokens_notsep'
+MODEL_CLASS=MBartForConditionalGenerationCharLevel
 # MODEL="facebook/mbart-large-50"
 MODEL="facebook/mbart-large-50-one-to-many-mmt"
 # SHORT_MODEL_NAME=boundary_encoder_prefix_rev
-SHORT_MODEL_NAME=mbart_plain
-ATTEMP=8
+SHORT_MODEL_NAME=mbart_2_addtoken_len_encoder_prefix
+ATTEMP=1
 
 DATASET_VER=data_bt
 # DATASET_CLASS=Seq2SeqDatasetPrefixEncoderBdr
-DATASET_CLASS=Seq2SeqDataset
+DATASET_CLASS=Seq2SeqDatasetJaPrefixEncoderLength
 CONSTRAINT_TYPE=reference
 SRC_LANG=en_XX
 TGT_LANG=ja_XX
-NUM_WORKERS=2
+NUM_WORKERS=3
 
 WARMUP_STEPS=2500
 # BS=40                   # fp32: GPU2: gpu:32   |   fp16:  48  (4:15/epoch), 80 64(when)  （2:43/epoch）
+# BS=16
 BS=16
-# BS=8
 VAL_CHECK_INTERVAL=0.5 # 0.25
 EPOCHS=5               # 5
 LR=3e-5                 # 3e-5 default
@@ -46,11 +48,9 @@ LENGTH_TARGET=tgt # src | tgt
 TEST_BOS_TOKEN_ID=250025
 TEST_SRC_LANG=en_XX # zh_CN
 TEST_BS=80
+# TEST_BS=1 # set 1 for FORCE=length
 FORCE=no # length | rhyme | no
 
-# change
-# TEST_DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
-# TEST_DATASET_DIR="/raid/ieda/ChineseDatasets/${DATASET_VER}"
 TEST_DATASET_DIR="/raid/ieda/trans_jaen_dataset/Dataset/datasets/${DATASET_VER}"
 # TEST_CONSTRAINT_TYPE=source # reference | source | random
 TEST_CONSTRAINT_TYPE=reference # reference | source | random
