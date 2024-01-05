@@ -33,3 +33,8 @@ with_not_finetuned.sh以外はtrain.sh, infer.sh両方に使える
     - len_XX(1~20), rhy_X(0~6), str_X(0~1)と\<prefix>,\</prefix>, \<brk>トークンを追加している
     - トークンを使わずにfinetuneし、正しく動くか確認する
         - 厳密には一致しないが、ほぼwith_try_btと同じ時のスコアが出たのでOK
+
+### with_pref_len.sh
+- lenトークンのみ使ってfinetune
+    - len_XXでXX字と指定しencoderに入れる
+    - が、length_accuracyはwith_try_btと変わらない
