@@ -134,6 +134,8 @@ class BoundaryUtil:
         # Construct prompt: 1 is ending syllable, 0 is other
         ret = []
         for i,token in enumerate(doc):
+            if token.morph.get("Reading") == []:
+                continue
             num_of_syllable = len(token.morph.get("Reading")[0])
             for ch in token.morph.get("Reading")[0]:
                 if ch in self.small_word:
@@ -692,6 +694,8 @@ class PosSeg:
         tagged_words = []
         for token in doc:
             num_syllables = 0
+            if token.morph.get("Reading") == []:
+                continue
             for ch in token.morph.get("Reading")[0]:
                 if not ch in self.small_word: # ”ッ"以外の小文字はsyllableにカウントしない
                     num_syllables += 1
