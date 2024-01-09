@@ -312,3 +312,27 @@ class Seq2SeqDatasetJaPrefixEncoderLength(AbstractSeq2SeqDataset):
         batch_encoding["ids"] = torch.tensor([x["id"] for x in batch])
 
         return batch_encoding
+
+class Seq2SeqDatasetMT5(Seq2SeqDataset):
+    def __init__(
+            self,
+            tokenizer,
+            data_dir,
+            max_source_length,
+            max_target_length,
+            type_path="train",
+            n_obs=None,
+            prefix="",
+            **dataset_kwargs
+    ):
+        super().__init__(tokenizer,
+                         data_dir,
+                         max_source_length,
+                         max_target_length,
+                         type_path,
+                         n_obs,
+                         prefix,
+                         **dataset_kwargs)
+        
+        self.dataset_kwargs = dataset_kwargs
+        dataset_kwargs.update({"add_prefix_space": True} if isinstance(self.tokenizer, BartTokenizer) else {})

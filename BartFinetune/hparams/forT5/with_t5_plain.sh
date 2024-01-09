@@ -1,23 +1,21 @@
 #!/usr/bin/env bash
-DEVICE=0
+DEVICE=1
 SEED=42
 
 # --------- For training ----------
 TRAIN_SCRIPT=finetune.py
 LOGGER=default # default | wandb
 
-TOKENIZER='./tokenizers/mbart_tokenizer_fast'
-# MODEL_CLASS=MBartForConditionalGenerationCharLevel
-MODEL_CLASS=MBartForConditionalGeneration
-# MODEL="facebook/mbart-large-50"
-MODEL="facebook/mbart-large-50-one-to-many-mmt"
+TOKENIZER='google/mt5-large'
+MODEL_CLASS=MT5ForConditionalGeneration
+MODEL="google/mt5-large"
 # SHORT_MODEL_NAME=boundary_encoder_prefix_rev
-SHORT_MODEL_NAME=mbart_plain
-ATTEMP=9
+SHORT_MODEL_NAME=mt5_plain
+ATTEMP=1
 
 DATASET_VER=data_bt
 # DATASET_CLASS=Seq2SeqDatasetPrefixEncoderBdr
-DATASET_CLASS=Seq2SeqDataset
+DATASET_CLASS=Seq2SeqDatasetMT5
 CONSTRAINT_TYPE=reference
 SRC_LANG=en_XX
 TGT_LANG=ja_XX
@@ -27,8 +25,8 @@ WARMUP_STEPS=2500
 # BS=40                   # fp32: GPU2: gpu:32   |   fp16:  48  (4:15/epoch), 80 64(when)  （2:43/epoch）
 BS=16
 # BS=8
-VAL_CHECK_INTERVAL=0.5 # 0.25
-EPOCHS=5               # 5
+VAL_CHECK_INTERVAL=0.25 # 0.25
+EPOCHS=10               # 5
 LR=3e-5                 # 3e-5 default
 EPS=1e-06
 LR_SCHEDULER=linear
@@ -51,7 +49,7 @@ FORCE=no # length | rhyme | no
 # change
 # TEST_DATASET_DIR="../Dataset/datasets/${DATASET_VER}"
 # TEST_DATASET_DIR="/raid/ieda/ChineseDatasets/${DATASET_VER}"
-TEST_DATASET_DIR="/raid/ieda/trans_jaen_dataset/Dataset/datasets/${DATASET_VER}"
+TEST_DATASET_DIR="/raid/ieda/trans_jaen_dataset/Dataset/datasets/${DATASET_VER}/mini"
 # TEST_CONSTRAINT_TYPE=source # reference | source | random
 TEST_CONSTRAINT_TYPE=reference # reference | source | random
 MODEL_NAME_OR_PATH=${OUTPUT_DIR}/best_tfmr

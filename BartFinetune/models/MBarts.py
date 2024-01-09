@@ -15,6 +15,7 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from torch.autograd import Variable
 from transformers import MBartForConditionalGeneration, MBartModel, MBartConfig, MBart50TokenizerFast, BeamScorer, \
     LogitsProcessorList, StoppingCriteriaList, LogitsProcessor
+from transformers import MT5Model, MT5Config, MT5TokenizerFast, MT5ForConditionalGeneration # for MT5
 from transformers.file_utils import ModelOutput
 from transformers.generation_stopping_criteria import validate_stopping_criteria
 from transformers.generation_utils import BeamSearchOutput, GreedySearchOutput, SampleOutput, BeamSampleOutput, \

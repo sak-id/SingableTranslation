@@ -31,8 +31,9 @@ from datasets import load_metric
 sys.path.insert(1, os.path.join(sys.path[0], '../'))
 from utils_common.utils import TextCorrupterEn, TextCorrupterCh
 from utils.utils_ja import (
-    # Seq2SeqDataset,
+    Seq2SeqDataset,
     Seq2SeqDatasetJaPrefixEncoderLength,
+    Seq2SeqDatasetMT5,
 )
 
 try:
@@ -3905,7 +3906,7 @@ def freeze_embeds(model):
     """Freeze token embeddings and positional embeddings for bart, just token embeddings for t5."""
     model_type = model.config.model_type
 
-    if model_type == "t5":
+    if model_type == "mt5":
         freeze_params(model.shared)
         for d in [model.encoder, model.decoder]:
             freeze_params(d.embed_tokens)

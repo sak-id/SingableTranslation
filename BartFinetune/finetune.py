@@ -25,7 +25,14 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from transformers import MBartTokenizer, T5ForConditionalGeneration, MBart50TokenizerFast, LogitsProcessor, MBartForConditionalGeneration # MBartForConditionalGeneration is added
+from transformers import (
+    MBartTokenizer,
+    MT5ForConditionalGeneration,
+    MBart50TokenizerFast,
+    LogitsProcessor,
+    MBartForConditionalGeneration, # MBartForConditionalGeneration is added
+    T5Tokenizer,
+)
 from transformers.models.bart.modeling_bart import shift_tokens_right
 
 from metrics import BoundaryRecall
@@ -67,6 +74,7 @@ from utils.utils import (
 from utils.utils_ja import (
     Seq2SeqDataset,
     Seq2SeqDatasetJaPrefixEncoderLength,
+    Seq2SeqDatasetMT5,
 )
 
 # Add the parent dir to path
@@ -118,8 +126,8 @@ class TranslationModule(BaseTransformer):
 
         # Extend model's embedding size
         self.model.resize_token_embeddings(new_num_tokens=len(self.tokenizer))
-
-        use_task_specific_params(self.model, "summarization") #モデルのパラメータを変更、表示
+        if not self.hparams.dataset_class in ['Seq2SeqDatasetMT5']:
+            use_task_specific_params(self.model, "summarization") #モデルのパラメータを変更、表示
         self.metrics_save_path = Path(self.output_dir) / "metrics.json"
         self.hparams_save_path = Path(self.output_dir) / "args.json"
         save_json_sort(self.hparams, self.hparams_save_path) #json形式の文字列へ変換しpath先に保存
@@ -136,8 +144,9 @@ class TranslationModule(BaseTransformer):
             max_source_length=self.hparams.max_source_length,
             prefix=self.model.config.prefix or "",
         )
-        self.dataset_kwargs["src_lang"] = args.src_lang
-        self.dataset_kwargs["tgt_lang"] = args.tgt_lang
+        if not self.hparams.dataset_class in ['Seq2SeqDatasetMT5']: #MBartのみ
+            self.dataset_kwargs["src_lang"] = args.src_lang
+            self.dataset_kwargs["tgt_lang"] = args.tgt_lang
         print(args.src_lang, args.tgt_lang)
         self.src_lang = args.src_lang
         self.tgt_lang = args.tgt_lang
@@ -147,14 +156,6 @@ class TranslationModule(BaseTransformer):
             "val": self.hparams.n_val,
             "test": self.hparams.n_test,
         }
-        # # For debug
-        # n_observations_per_split = {
-        #     "train": 100,
-        #     "val": 10,
-        #     "test": 10,
-        # }
-        
-
         # n_xx default: -1 so all "train", "val", and "test": None
         self.n_obs = {k: v if v >= 0 else None for k, v in n_observations_per_split.items()}
 
@@ -184,8 +185,9 @@ class TranslationModule(BaseTransformer):
         #     self.decoder_start_token_id = self.tokenizer.lang_code_to_id[args.tgt_lang]
         #     self.model.config.decoder_start_token_id = self.decoder_start_token_id
         #     print('BOS start token id specified to ', self.tokenizer.lang_code_to_id[args.tgt_lang])
-        self.forced_bos_token_id = self.tokenizer.lang_code_to_id[args.tgt_lang]
-        print('\n', 'BOS start token id specified to ', self.tokenizer.lang_code_to_id[args.tgt_lang], '\n') #250012, ja_XX
+        if isinstance(self.tokenizer, MBartTokenizer):
+            self.forced_bos_token_id = self.tokenizer.lang_code_to_id[args.tgt_lang]
+            print('\n', 'BOS start token id specified to ', self.tokenizer.lang_code_to_id[args.tgt_lang], '\n') #250012, ja_XX
 
         # self.dataset_class = eval(self.hparams.dataset_class)
         self.dataset_class = get_dataset_by_type(self.hparams.dataset_class) #データセットのクラスを取得
@@ -285,6 +287,7 @@ class TranslationModule(BaseTransformer):
             shift_func = shift_tokens_right_prefix_1
         elif self.hparams.dataset_class in [  # no decoder prefix
             "Seq2SeqDataset",
+            "Seq2SeqDatasetMT5",
             'Seq2SeqDatasetAdapt',
             'Seq2SeqDatasetPrefixEncoder',
             'Seq2SeqDatasetJaPrefixEncoderLength',
@@ -401,7 +404,7 @@ class TranslationModule(BaseTransformer):
         loss = losses["loss"]
         ks = self.metric_names + ["gen_time", "gen_len"]
 
-        if self.hparams.dataset_class not in ['Seq2SeqDataset', 'Seq2SeqDatasetAdapt']:
+        if self.hparams.dataset_class not in ['Seq2SeqDataset', 'Seq2SeqDatasetAdapt', 'Seq2SeqDatasetMT5']:
             ks += ['len_acc', 'rhyme_acc', 'boundary_recall']
 
         if self.hparams.dataset_class in [
@@ -632,16 +635,27 @@ class TranslationModule(BaseTransformer):
                 max_length=self.eval_max_length,
                 emb_ids=batch["emb_ids"],
             )
+        elif self.hparams.dataset_class in ['Seq2SeqDatasetMT5']:
+            generated_ids = self.model.generate(
+                input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"],
+                use_cache=True,
+                # decoder_start_token_id=self.decoder_start_token_id, #  no need to set for mBART-50
+                # forced_bos_token_id=self.forced_bos_token_id,  # should be set for mBART-50
+                num_beams=self.eval_beams,
+                max_length=self.eval_max_length,
+            )
         else:
             raise Exception("Incorrect dataset_class: {}".format(self.hparams.dataset_class))
-        # print(generated_ids)
         gen_time = (time.time() - t0) / batch["input_ids"].shape[0]
         preds: List[str] = self.ids_to_clean_text(generated_ids)
         target: List[str] = self.ids_to_clean_text(batch["labels"])
         loss_tensors = self._step(batch)
         # print(batch)
         # print('generated_ids:', generated_ids)
+        # print('generative preds:', preds)
         # print('generative preds:', preds[0])
+        # print('target:', target)
         # preds2: List[str] = self.ids_to_clean_text([x[2:] for x in generated_ids])
         # print('preds2:', preds2)
         # Validation metrics
@@ -652,7 +666,7 @@ class TranslationModule(BaseTransformer):
         summ_len = np.mean(lmap(len, generated_ids))
 
         base_metrics.update(gen_time=gen_time, gen_len=summ_len, preds=preds, target=target, **bleu)
-        if self.hparams.dataset_class not in ['Seq2SeqDataset', 'Seq2SeqDatasetAdapt']:
+        if self.hparams.dataset_class not in ['Seq2SeqDataset', 'Seq2SeqDatasetAdapt', 'Seq2SeqDatasetMT5']:
             # Compute format accuracy
             out_lens = [len(i.strip()) for i in preds]
             # out_lens = SyllableCounterJA.count_syllable_sentence_batch(preds) #日本語版ならこちらに変更
@@ -894,14 +908,23 @@ def train_with_args(args, model=None):
 
     # Load tokenizer
     print('Tokenizer path:', args.tokenizer)
-    tokenizer = MBart50TokenizerFast.from_pretrained(args.tokenizer)
-    tokenizer.src_lang = 'en_XX'
-    tokenizer.tgt_lang = 'ja_XX'
-
+    if 'MBart' in args.model_class_name:
+        tokenizer = MBart50TokenizerFast.from_pretrained(args.tokenizer)
+        tokenizer.src_lang = 'en_XX'
+        tokenizer.tgt_lang = 'ja_XX'
+    elif 'MT5' in args.model_class_name:
+        tokenizer = T5Tokenizer.from_pretrained(args.tokenizer)
+    else:
+        raise Exception('Incorrect model class name: {}'.format(args.model_class_name))
+    
     # Construct model
     if model is None:
         assert args.task == 'translation'
         model = TranslationModule(args, tokenizer=tokenizer)
+    # defined in Seq2SeqDatasetMT5
+    # if 'MT5' in args.model_class_name:
+    #     model.config.prefix = 'translate English to Japanese: '
+    #     print('Set prefix: {}'.format(model.config.prefix))
 
     # Construct logger
     dataset_dir = Path(args.data_dir).name # DATASET_DIRと同じ

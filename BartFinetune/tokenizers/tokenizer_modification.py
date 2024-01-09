@@ -178,14 +178,19 @@ def remove_multi_character_word():
     vocab = tk['model']['vocab']
     #pattern_ch = '[\u4e00-\u9fff]'
     pattern_ja = '[\u3041-\u309F\u30A0-\u30FF\u4E00-\u9FFF]'
+    pattern_katakana = '[\u30A0-\u30FF]'
     deactivated_tokens = []
+    ok_tokens = []
     for i in range(len(vocab)):
         entry = vocab[i]
-        if re.search(pattern_ja, entry[0]):  # If contain chinese character
-            if len(entry[0]) > 1:
+        if re.search(pattern_ja, entry[0]):  # If contain Japanese character
+            if len(entry[0])>1 or not re.fullmatch(pattern_katakana, entry[0]): # if multi-char word or not katakana
                 deactivated_tokens.append(entry[0])
                 entry[0] = deactivated_label
-    save_json(tk, './mbart_tokenizer_fast/tokenizer.json')
+            else:
+                ok_tokens.append(entry[0])
+    print(*ok_tokens)
+    save_json(tk, './mbart_tokenizer_fast/tokenizer.json') # need change
     save_json(deactivated_tokens, './misc/deactivated_tokens.json')
 
 
